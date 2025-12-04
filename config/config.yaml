@@ -1,0 +1,143 @@
+# SiteGiant Pricing Automation Configuration
+
+# File paths (relative to project root)
+paths:
+  sitegiant_export_dir: "data/input"
+  mapping_dir: "data/mapping"
+  cache_dir: "data/cache"
+  output_dir: "data/output"
+  logs_dir: "logs"
+  
+  # Default file paths
+  default_sitegiant_export: "data/input/sitegiant_export.xlsx"
+  mapping_template_path: "data/mapping/sitegiant_pokedata_mapping_template.xlsx"
+  default_mapping_file: "pokedata_mapping.xlsx"
+  price_cache_file: "previous_pokedata_prices.csv"
+  
+  # Master mapping file (managed via Settings page in web app)
+  mapping_master_path: "data/mapping/master_mapping.xlsx"
+
+# FX conversion settings
+fx:
+  # Mode: "google" (live rate from Google Finance) or "manual" (use default_rate)
+  mode: "google"
+  
+  # Default/fallback USD to MYR exchange rate (used if Google fetch fails or mode is manual)
+  default_rate: 4.70
+  
+  # Pricing formula: P_final = (P_usd × rate) / margin_divisor
+  margin_divisor: 0.8
+  
+  # Google Finance settings (when mode is "google")
+  google:
+    base_currency: "USD"
+    quote_currency: "MYR"
+    pair_symbol: "USD-MYR"      # Used to build Google Finance URL
+    timeout_seconds: 10         # HTTP request timeout
+
+# Rounding rules
+rounding:
+  # Decimal places for final MYR price
+  decimal_places: 2
+  
+  # Rounding method: round | floor | ceil
+  method: "round"
+  
+  # Optional: round to nearest X (e.g., 0.05 for 5 sen increments)
+  round_to_nearest: null
+
+# Risk thresholds for price change detection
+thresholds:
+  # Soft threshold: show warning but allow update
+  soft:
+    # Max % change vs current SiteGiant price
+    vs_sitegiant_pct: 20.0
+    
+    # Max % change vs yesterday's Pokedata price
+    vs_previous_pct: 15.0
+  
+  # Hard threshold: block update, require manual review
+  hard:
+    # Max % change vs current SiteGiant price
+    vs_sitegiant_pct: 50.0
+    
+    # Max % change vs yesterday's Pokedata price
+    vs_previous_pct: 30.0
+
+# Pokedata API settings
+pokedata:
+  # Environment variable name for API key
+  api_key_env: "POKEDATA_API_KEY"
+  
+  # Base URL for Pokedata API
+  base_url: "https://www.pokedata.io"
+  
+  # Search endpoint path
+  search_endpoint: "/v0/search"
+  
+  # Request timeout in seconds
+  timeout: 30
+  
+  # Max retries on failure
+  max_retries: 3
+  
+  # Delay between retries (seconds)
+  retry_delay: 1.0
+  
+  # Rate limiting: requests per second
+  rate_limit: 5
+
+# Cache settings (reduces API calls)
+cache:
+  # Enable caching (set to false to always fetch fresh data)
+  enabled: true
+  
+  # Price cache TTL in hours (how long before prices are considered stale)
+  price_ttl_hours: 2
+  
+  # Product metadata cache TTL in hours
+  product_ttl_hours: 24
+  
+  # Search results cache TTL in minutes
+  search_ttl_minutes: 15
+  
+  # Cache directory (relative to project root)
+  cache_dir: "data/cache"
+
+# SiteGiant Excel column mappings
+sitegiant:
+  # Column names in the SiteGiant export file
+  columns:
+    sku: "SKU"
+    product_name: "Product Name"
+    current_price: "Price"
+    stock: "Stock"
+    status: "Status"
+  
+  # Filter: only process products matching these criteria
+  filters:
+    # Only process products with stock > 0
+    in_stock_only: false
+    
+    # Only process active products
+    active_only: true
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_rotation:
+    max_bytes: 10485760  # 10 MB
+    backup_count: 5
+
+# GUI settings
+gui:
+  title: "SiteGiant Pricing Automation"
+  page_size: 50
+  theme: "light"
+
+# Mapping file settings
+mapping:
+  # How to handle duplicate SKUs in mapping file
+  # Options: "merge" (keep last entry) or "ignore" (keep first entry)
+  duplicate_handling: "merge"

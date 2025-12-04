@@ -1,0 +1,533 @@
+{% extends "base.html" %}
+
+{% block title %}Preview Results - SiteGiant Pricing{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header flex-between">
+    <div>
+        <h1 class="page-title">Price Changes Preview</h1>
+        <p class="page-subtitle">Review calculated prices before exporting</p>
+    </div>
+    <div class="flex gap-2">
+        <span class="badge">📄 {{ sitegiant_filename }}</span>
+        <span class="badge">🗺️ {{ mapping_row_count }} mappings</span>
+        <span class="badge" id="editedCountBadge" style="display: none; background: var(--accent-color);">0 edited</span>
+    </div>
+</div>
+
+{% if export_error %}
+<!-- Export Error Banner (Phase 2) -->
+<div class="alert alert-error" style="background: linear-gradient(135deg, #f44336, #d32f2f); color: white; padding: 16px 24px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 12px rgba(244,67,54,0.3);">
+    <span style="font-size: 24px;">🚫</span>
+    <div>
+        <strong style="font-size: 1.1em;">EXPORT BLOCKED</strong>
+        <p style="margin: 4px 0 0 0; opacity: 0.95;">{{ export_error }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if demo_mode %}
+<!-- Demo Mode Warning Banner -->
+<div class="alert alert-warning" style="background: linear-gradient(135deg, #ff9800, #f57c00); color: white; padding: 16px 24px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 12px rgba(255,152,0,0.3);">
+    <span style="font-size: 24px;">⚠️</span>
+    <div>
+        <strong style="font-size: 1.1em;">DEMO MODE ACTIVE</strong>
+        <p style="margin: 4px 0 0 0; opacity: 0.95;">{{ demo_warning or "Using simulated random prices. These are NOT real market prices. Configure your Pokedata API key in Settings to fetch real prices." }}</p>
+        <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 0.9em;"><strong>⚠️ Export is disabled in demo mode.</strong> Go to <a href="/settings/mapping" style="color: white; text-decoration: underline;">Settings</a> to configure your API key.</p>
+    </div>
+</div>
+{% endif %}
+
+{% if status_counts.unmapped > 0 %}
+<!-- Unmapped SKU Banner (Phase 4) -->
+<div class="alert alert-info" style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; padding: 16px 24px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 4px 12px rgba(33,150,243,0.3);">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 24px;">📋</span>
+        <div>
+            <strong style="font-size: 1.1em;">{{ status_counts.unmapped }} Unmapped SKUs</strong>
+            <p style="margin: 4px 0 0 0; opacity: 0.95;">These products are not in your mapping file and will not be updated. Add them to the mapping to enable price updates.</p>
+        </div>
+    </div>
+    <a href="/download-unmapped/{{ session_id }}" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); white-space: nowrap;">
+        📥 Download Unmapped
+    </a>
+</div>
+{% endif %}
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ status_counts.total }}</div>
+        <div class="stat-label">Total Products</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-value">{{ status_counts.ok }}</div>
+        <div class="stat-label">🟢 OK</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-value">{{ status_counts.warning }}</div>
+        <div class="stat-label">🟡 Warning</div>
+    </div>
+    <div class="stat-card error">
+        <div class="stat-value">{{ status_counts.blocked }}</div>
+        <div class="stat-label">🔴 Blocked</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status_counts.no_data }}</div>
+        <div class="stat-label">⚫ No Data</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status_counts.unmapped }}</div>
+        <div class="stat-label">⚪ Unmapped</div>
+    </div>
+    <div class="stat-card info">
+        <div class="stat-value" id="selectedCount">{{ status_counts.to_update }}</div>
+        <div class="stat-label">✓ Selected</div>
+    </div>
+</div>
+
+<!-- Config Summary -->
+<div class="config-summary">
+    <span><strong>FX Rate:</strong> {{ "%.2f"|format(fx_rate_used) }} ({{ fx_source }})</span>
+    <span><strong>Soft Threshold:</strong> {{ soft_threshold }}%</span>
+    <span><strong>Hard Threshold:</strong> {{ hard_threshold }}%</span>
+</div>
+
+<!-- Phase 5: Selection Hint -->
+<div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.9rem; color: var(--text-secondary);">
+    <strong>ℹ️ Selection Guide:</strong> By default, only <span style="color: var(--status-ok);">OK</span> and <span style="color: var(--status-warning);">WARNING</span> rows with <code>auto_update=Y</code> are pre-selected.
+    <span style="color: var(--status-error);">BLOCKED</span> and <span style="color: var(--text-secondary);">UNMAPPED</span> rows are never included in exports for safety.
+</div>
+
+<!-- Results Card -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <span class="icon">📊</span>
+            Results Table
+        </h2>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <!-- Actions Bar -->
+        <div class="actions-bar" style="padding: 16px 24px; border-bottom: 1px solid var(--border-color);">
+            <div class="actions-left">
+                <button type="button" class="btn btn-outline btn-sm" onclick="selectByStatus('OK')" title="Select all OK rows">✅ Select OK</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="selectByStatus('WARNING')" title="Select all Warning rows">⚠️ Select Warnings</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="confirmSelectAll()">Select Eligible</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="confirmClearAll()">Clear All</button>
+            </div>
+            <div class="actions-right">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search SKU or name..." oninput="searchTable()">
+                </div>
+                <select id="statusFilter" onchange="filterTable()" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <option value="">All Statuses</option>
+                    <option value="OK">OK</option>
+                    <option value="WARNING">Warning</option>
+                    <option value="BLOCKED">Blocked</option>
+                    <option value="NO_DATA">No Data</option>
+                    <option value="UNMAPPED">Unmapped</option>
+                </select>
+                <span class="filter-count" id="filterCount">{{ results|length }} rows</span>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <form action="/export" method="post" id="exportForm">
+            <input type="hidden" name="session_id" value="{{ session_id }}">
+            
+            <div class="table-scroll">
+                <table class="data-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th class="col-checkbox">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)">
+                            </th>
+                            <th>Name</th>
+                            <th>SKU</th>
+                            <th class="col-number">Old Price</th>
+                            <th class="col-number">New Price <span style="font-size: 0.7em; opacity: 0.7;">✏️</span></th>
+                            <th class="col-number">Δ</th>
+                            <th class="col-number">%</th>
+                            <th class="col-status">Status</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in results %}
+                        <tr data-status="{{ row.status }}" data-name="{{ row.name|lower }}" data-sku="{{ row.sku|lower }}">
+                            <td class="col-checkbox">
+                                <input type="checkbox" 
+                                       name="selected_skus" 
+                                       value="{{ row.sku }}"
+                                       class="row-checkbox"
+                                       {% if row.include_in_update %}checked{% endif %}
+                                       onchange="updateSelectedCount()">
+                            </td>
+                            <td class="col-name" data-tooltip="{{ row.name }}">{{ row.name[:35] }}{% if row.name|length > 35 %}...{% endif %}</td>
+                            <td class="col-sku">{{ row.sku }}</td>
+                            <td class="col-number">{{ row.price }}</td>
+                            <td class="col-number editable-price-cell">
+                                <input type="hidden" name="edited_prices[{{ row.sku }}]" value="{{ row.new_price_myr }}" class="edited-price-hidden">
+                                <span class="price-display" data-original="{{ row.new_price_myr }}" onclick="editPrice(this)">{{ row.new_price_myr }}</span>
+                                <input type="number" step="0.01" min="0" class="price-input" value="{{ row.new_price_myr }}" style="display: none; width: 80px;" onblur="savePrice(this)" onkeydown="handlePriceKey(event, this)">
+                            </td>
+                            <td class="col-number {% if row.abs_change %}{% if row.abs_change.startswith('-') %}price-down{% else %}price-up{% endif %}{% endif %}">
+                                {{ row.abs_change }}
+                            </td>
+                            <td class="col-number {% if row.pct_change %}{% if row.pct_change.startswith('-') %}price-down{% else %}price-up{% endif %}{% endif %}">
+                                {{ row.pct_change }}
+                            </td>
+                            <td class="col-status">
+                                <span class="status-chip {{ row.status|lower }}" data-tooltip="{{ row.status_reason }}">
+                                    {% if row.status == 'OK' %}✓{% elif row.status == 'WARNING' %}⚠{% elif row.status == 'BLOCKED' %}✕{% else %}–{% endif %}
+                                    {{ row.status }}
+                                </span>
+                            </td>
+                            <td class="col-reason" data-tooltip="{{ row.status_reason }}">{{ row.status_reason[:25] }}{% if row.status_reason|length > 25 %}...{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Sticky Export Bar -->
+<div class="card" style="position: sticky; bottom: 0; z-index: 100; margin-bottom: 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.4);">
+    <div class="card-body" style="padding: 16px 24px;">
+        <div class="flex-between flex-wrap gap-2">
+            <div>
+                <p style="font-size: 0.95rem; margin-bottom: 4px;">
+                    <strong id="exportSummary">{{ status_counts.to_update }}</strong> rows selected for update
+                </p>
+                <div class="shortcut-hint">
+                    <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> to export
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <a href="/clear-session/{{ session_id }}" class="btn btn-secondary" onclick="return confirmBack(event)">
+                    ← Back
+                </a>
+                <button type="submit" form="exportForm" class="btn btn-primary" id="exportBtn">
+                    <span class="btn-icon">📥</span>
+                    Export to Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Demo mode flag from server
+    const isDemoMode = {{ 'true' if demo_mode else 'false' }};
+    
+    // Update selected count
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.row-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('exportSummary').textContent = count;
+        
+        // Enable/disable export based on selection AND demo mode
+        const exportBtn = document.getElementById('exportBtn');
+        if (isDemoMode) {
+            exportBtn.disabled = true;
+            exportBtn.title = 'Export disabled in DEMO MODE - configure API key in Settings';
+        } else if (count === 0) {
+            exportBtn.disabled = true;
+            exportBtn.title = 'Select at least one row to export';
+        } else {
+            exportBtn.disabled = false;
+            exportBtn.title = `Export ${count} selected rows`;
+        }
+    }
+
+    function toggleSelectAll(checkbox) {
+        const visibleRows = document.querySelectorAll('#resultsTable tbody tr:not([style*="display: none"]) .row-checkbox');
+        visibleRows.forEach(cb => cb.checked = checkbox.checked);
+        updateSelectedCount();
+    }
+
+    function selectByStatus(status) {
+        let count = 0;
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            const row = cb.closest('tr');
+            if (row.dataset.status === status) {
+                cb.checked = true;
+                count++;
+            }
+        });
+        updateSelectedCount();
+        Toast.success(`Selected ${status}`, `${count} rows selected`);
+    }
+
+    // Phase 5: Safer "Select All" - only selects OK/WARNING rows (eligible for update)
+    function confirmSelectAll() {
+        const eligibleRows = document.querySelectorAll('#resultsTable tbody tr[data-status="OK"], #resultsTable tbody tr[data-status="WARNING"]');
+        const eligibleCount = eligibleRows.length;
+        
+        if (eligibleCount === 0) {
+            Toast.warning('No Eligible Rows', 'No OK or WARNING rows available to select');
+            return;
+        }
+        
+        Confirm.show(
+            '✅ Select Eligible Rows?',
+            `This will select ${eligibleCount} rows with OK or WARNING status. BLOCKED and UNMAPPED rows are excluded for safety.`,
+            () => {
+                selectAllEligible();
+                Toast.success('Selected Eligible', `${eligibleCount} eligible rows selected`);
+            },
+            { confirmText: 'Select Eligible' }
+        );
+    }
+
+    // Only select OK/WARNING rows - safer default behavior
+    function selectAllEligible() {
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            const row = cb.closest('tr');
+            const status = row.dataset.status;
+            // Only select OK and WARNING rows
+            if (status === 'OK' || status === 'WARNING') {
+                cb.checked = true;
+            }
+        });
+        updateSelectedCount();
+    }
+    
+    // Legacy selectAll kept for compatibility but now uses safe version
+    function selectAll() {
+        selectAllEligible();
+    }
+
+    // Confirm before clear all
+    function confirmClearAll() {
+        const selected = document.querySelectorAll('.row-checkbox:checked').length;
+        if (selected === 0) {
+            Toast.info('Nothing to Clear', 'No rows are currently selected');
+            return;
+        }
+        Confirm.show(
+            '⚠️ Clear Selection?',
+            `This will deselect all ${selected} selected rows.`,
+            () => {
+                deselectAll();
+                Toast.info('Selection Cleared', 'All rows deselected');
+            },
+            { confirmText: 'Clear All' }
+        );
+    }
+
+    function deselectAll() {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    }
+
+    // Search functionality
+    function searchTable() {
+        const query = document.getElementById('searchInput').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#resultsTable tbody tr');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const name = row.dataset.name || '';
+            const sku = row.dataset.sku || '';
+            const matchesSearch = !query || name.includes(query) || sku.includes(query);
+            const statusFilter = document.getElementById('statusFilter').value;
+            const matchesStatus = !statusFilter || row.dataset.status === statusFilter;
+
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        document.getElementById('filterCount').textContent = `${visibleCount} rows`;
+    }
+
+    function filterTable() {
+        searchTable(); // Reuse search which also handles filter
+    }
+
+    // Confirm before navigating back
+    function confirmBack(event) {
+        const selected = document.querySelectorAll('.row-checkbox:checked').length;
+        if (selected > 0) {
+            event.preventDefault();
+            Confirm.show(
+                '⚠️ Leave Page?',
+                `You have ${selected} rows selected. Going back will lose your selection.`,
+                () => {
+                    window.location.href = event.target.href;
+                },
+                { confirmText: 'Leave Page' }
+            );
+            return false;
+        }
+        return true;
+    }
+
+    // Export with toast notification
+    document.getElementById('exportForm').addEventListener('submit', function(e) {
+        const selected = document.querySelectorAll('.row-checkbox:checked').length;
+        if (selected === 0) {
+            e.preventDefault();
+            Toast.error('No Selection', 'Please select at least one row to export');
+            return;
+        }
+        
+        const btn = document.getElementById('exportBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Exporting...';
+        
+        Toast.info('Exporting...', `Generating Excel with ${selected} rows`);
+        
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">📥</span> Export to Excel';
+            Toast.success('Export Complete', 'Your file is downloading');
+        }, 2000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+A to select all visible
+        if (e.ctrlKey && e.key === 'a' && !e.target.matches('input, textarea')) {
+            e.preventDefault();
+            const visibleCheckboxes = document.querySelectorAll('#resultsTable tbody tr:not([style*="display: none"]) .row-checkbox');
+            visibleCheckboxes.forEach(cb => cb.checked = true);
+            updateSelectedCount();
+        }
+        
+        // Ctrl+D to deselect all
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            deselectAll();
+        }
+        
+        // / to focus search
+        if (e.key === '/' && !e.target.matches('input, textarea')) {
+            e.preventDefault();
+            document.getElementById('searchInput').focus();
+        }
+    });
+
+    // =========================================================
+    // Price Editing Functions
+    // =========================================================
+    
+    function editPrice(displaySpan) {
+        const cell = displaySpan.closest('.editable-price-cell');
+        const input = cell.querySelector('.price-input');
+        const hiddenInput = cell.querySelector('.edited-price-hidden');
+        
+        // Show input, hide display
+        displaySpan.style.display = 'none';
+        input.style.display = 'inline-block';
+        input.focus();
+        input.select();
+    }
+    
+    function savePrice(input) {
+        const cell = input.closest('.editable-price-cell');
+        const displaySpan = cell.querySelector('.price-display');
+        const hiddenInput = cell.querySelector('.edited-price-hidden');
+        const row = input.closest('tr');
+        const oldPriceCell = row.querySelector('td:nth-child(4)');
+        const absChangeCell = row.querySelector('td:nth-child(6)');
+        const pctChangeCell = row.querySelector('td:nth-child(7)');
+        
+        // Validate and get new value
+        let newValue = parseFloat(input.value);
+        if (isNaN(newValue) || newValue < 0) {
+            newValue = parseFloat(hiddenInput.value) || 0;
+            input.value = newValue.toFixed(2);
+        }
+        
+        // Update hidden form field and display
+        hiddenInput.value = newValue.toFixed(2);
+        displaySpan.textContent = newValue.toFixed(2);
+        displaySpan.style.display = 'inline';
+        input.style.display = 'none';
+        
+        // Mark as edited if value changed from original
+        const originalValue = parseFloat(displaySpan.dataset.original);
+        
+        if (Math.abs(newValue - originalValue) > 0.01) {
+            displaySpan.classList.add('price-edited');
+            cell.classList.add('edited');
+        } else {
+            displaySpan.classList.remove('price-edited');
+            cell.classList.remove('edited');
+        }
+        
+        // Recalculate delta and percentage
+        const oldPrice = parseFloat(oldPriceCell.textContent);
+        if (!isNaN(oldPrice) && oldPrice > 0) {
+            const absChange = newValue - oldPrice;
+            const pctChange = ((newValue - oldPrice) / oldPrice) * 100;
+            
+            // Update delta cell
+            absChangeCell.textContent = absChange.toFixed(2);
+            absChangeCell.classList.remove('price-up', 'price-down');
+            if (absChange > 0) absChangeCell.classList.add('price-up');
+            else if (absChange < 0) absChangeCell.classList.add('price-down');
+            
+            // Update percentage cell
+            pctChangeCell.textContent = pctChange.toFixed(1) + '%';
+            pctChangeCell.classList.remove('price-up', 'price-down');
+            if (pctChange > 0) pctChangeCell.classList.add('price-up');
+            else if (pctChange < 0) pctChangeCell.classList.add('price-down');
+        }
+        
+        // Update edited count
+        updateEditedCount();
+    }
+    
+    function handlePriceKey(event, input) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            savePrice(input);
+        } else if (event.key === 'Escape') {
+            // Cancel edit
+            const cell = input.closest('.editable-price-cell');
+            const displaySpan = cell.querySelector('.price-display');
+            const hiddenInput = cell.querySelector('.edited-price-hidden');
+            input.value = hiddenInput.value;
+            displaySpan.style.display = 'inline';
+            input.style.display = 'none';
+        }
+    }
+    
+    function updateEditedCount() {
+        const editedCells = document.querySelectorAll('.editable-price-cell.edited');
+        const badge = document.getElementById('editedCountBadge');
+        if (badge) {
+            if (editedCells.length > 0) {
+                badge.textContent = `${editedCells.length} edited`;
+                badge.style.display = 'inline';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+
+    // Initial count
+    updateSelectedCount();
+    
+    // Show keyboard hints on first visit
+    if (!Prefs.get('seen_preview_hints')) {
+        setTimeout(() => {
+            Toast.info('Keyboard Shortcuts', 'Press / to search, Ctrl+A to select all, click New Price to edit');
+            Prefs.set('seen_preview_hints', true);
+        }, 1000);
+    }
+</script>
+{% endblock %}

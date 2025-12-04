@@ -1,0 +1,38 @@
+services:
+  webapp:
+    build: .
+    container_name: sitegiant-pricing
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist data directories
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - POKEDATA_API_KEY=${POKEDATA_API_KEY}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Development mode with auto-reload
+  webapp-dev:
+    build: .
+    container_name: sitegiant-pricing-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - POKEDATA_API_KEY=${POKEDATA_API_KEY}
+    env_file:
+      - .env
+    command: uvicorn src.webapp.main:app --host 0.0.0.0 --port 8000 --reload
+    profiles:
+      - dev

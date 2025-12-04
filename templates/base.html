@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SiteGiant Pricing Automation - Sync Pokedata prices to SiteGiant">
+    <meta name="theme-color" content="#08080c">
+    <title>{% block title %}SiteGiant Pricing Automation{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container"></div>
+        
+        <!-- Loading Overlay (hidden by default) -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text" id="loadingText">Processing...</div>
+                <div class="loading-subtext" id="loadingSubtext">Please wait</div>
+            </div>
+        </div>
+        
+        <!-- Confirmation Modal -->
+        <div id="confirmModal" class="modal-backdrop">
+            <div class="modal">
+                <div class="modal-title" id="modalTitle">⚠️ Confirm Action</div>
+                <div class="modal-message" id="modalMessage">Are you sure?</div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+                    <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="/" class="sidebar-brand">
+                    <img src="/static/logo.svg" alt="SiteGiant" class="sidebar-brand-logo" width="32" height="32">
+                    <span class="sidebar-brand-text">SiteGiant</span>
+                </a>
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar" aria-label="Toggle sidebar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Workflow</div>
+                    <a href="/" class="sidebar-link {% block nav_home %}{% endblock %}">
+                        <span class="sidebar-link-icon">🚀</span>
+                        <span class="sidebar-link-text">Price Update</span>
+                    </a>
+                    <a href="/explorer" class="sidebar-link {% block nav_explorer %}{% endblock %}">
+                        <span class="sidebar-link-icon">🔍</span>
+                        <span class="sidebar-link-text">Explorer</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Setup</div>
+                    <a href="/settings/mapping" class="sidebar-link {% block nav_settings %}{% endblock %}">
+                        <span class="sidebar-link-icon">⚙️</span>
+                        <span class="sidebar-link-text">Mapping</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="themeToggle" class="sidebar-link" title="Toggle theme">
+                    <span class="sidebar-link-icon theme-icon-dark">🌙</span>
+                    <span class="sidebar-link-icon theme-icon-light">☀️</span>
+                    <span class="sidebar-link-text">Theme</span>
+                </button>
+                <div class="sidebar-version">v1.0.0</div>
+            </div>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <div class="main-wrapper">
+            <!-- Top Bar (Mobile) -->
+            <header class="topbar">
+                <button class="topbar-menu" id="mobileMenuBtn">
+                    <span>☰</span>
+                </button>
+                <span class="topbar-title">{% block page_title %}SiteGiant Pricing{% endblock %}</span>
+            </header>
+            
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="container">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+            
+            <!-- Footer -->
+            <footer class="site-footer">
+                <div class="container">
+                    SiteGiant Pricing Automation &copy; 2024
+                </div>
+            </footer>
+        </div>
+    </div>
+    
+    <!-- Global Utilities -->
+    <script>
+        // Toast Notification System
+        const Toast = {
+            container: document.getElementById('toastContainer'),
+            
+            show(type, title, message, duration = 4000) {
+                const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `
+                    <span class="toast-icon">${icons[type] || 'ℹ'}</span>
+                    <div class="toast-content">
+                        <div class="toast-title">${title}</div>
+                        ${message ? `<div class="toast-message">${message}</div>` : ''}
+                    </div>
+                    <button class="toast-close">×</button>
+                `;
+                
+                const close = () => {
+                    toast.classList.add('hiding');
+                    setTimeout(() => toast.remove(), 300);
+                };
+                
+                toast.querySelector('.toast-close').onclick = close;
+                toast.onclick = (e) => { if (e.target === toast) close(); };
+                
+                this.container.appendChild(toast);
+                if (duration > 0) setTimeout(close, duration);
+                
+                return toast;
+            },
+            
+            success(title, message) { return this.show('success', title, message); },
+            error(title, message) { return this.show('error', title, message, 6000); },
+            warning(title, message) { return this.show('warning', title, message, 5000); },
+            info(title, message) { return this.show('info', title, message); }
+        };
+        
+        // Loading Overlay
+        const Loading = {
+            overlay: document.getElementById('loadingOverlay'),
+            textEl: document.getElementById('loadingText'),
+            subtextEl: document.getElementById('loadingSubtext'),
+            
+            show(text = 'Processing...', subtext = 'Please wait') {
+                this.textEl.textContent = text;
+                this.subtextEl.textContent = subtext;
+                this.overlay.style.display = 'flex';
+            },
+            
+            hide() {
+                this.overlay.style.display = 'none';
+            }
+        };
+        
+        // Confirmation Modal
+        const Confirm = {
+            modal: document.getElementById('confirmModal'),
+            titleEl: document.getElementById('modalTitle'),
+            messageEl: document.getElementById('modalMessage'),
+            confirmBtn: document.getElementById('modalConfirm'),
+            cancelBtn: document.getElementById('modalCancel'),
+            
+            show(title, message, onConfirm, options = {}) {
+                this.titleEl.textContent = title;
+                this.messageEl.textContent = message;
+                this.confirmBtn.textContent = options.confirmText || 'Confirm';
+                this.confirmBtn.className = `btn ${options.danger ? 'btn-primary' : 'btn-primary'}`;
+                
+                const close = () => this.modal.classList.remove('active');
+                
+                this.cancelBtn.onclick = close;
+                this.confirmBtn.onclick = () => {
+                    close();
+                    if (onConfirm) onConfirm();
+                };
+                
+                this.modal.onclick = (e) => { if (e.target === this.modal) close(); };
+                this.modal.classList.add('active');
+            }
+        };
+        
+        // Keyboard Shortcuts System
+        const Shortcuts = {
+            registered: {},
+            
+            register(key, callback, description) {
+                this.registered[key] = { callback, description };
+            },
+            
+            init() {
+                document.addEventListener('keydown', (e) => {
+                    // Don't trigger shortcuts when typing in inputs
+                    if (e.target.matches('input, textarea, select')) {
+                        // Allow Escape and Ctrl+Enter even in inputs
+                        if (e.key !== 'Escape' && !(e.ctrlKey && e.key === 'Enter')) {
+                            return;
+                        }
+                    }
+                    
+                    // Escape to close modal/overlay
+                    if (e.key === 'Escape') {
+                        document.getElementById('confirmModal').classList.remove('active');
+                        Loading.hide();
+                        return;
+                    }
+                    
+                    // Ctrl+Enter to submit form
+                    if (e.ctrlKey && e.key === 'Enter') {
+                        const form = document.querySelector('form:not([data-no-shortcut])');
+                        if (form) {
+                            e.preventDefault();
+                            form.requestSubmit();
+                        }
+                        return;
+                    }
+                    
+                    // Ctrl+/ to show help
+                    if (e.ctrlKey && e.key === '/') {
+                        e.preventDefault();
+                        this.showHelp();
+                        return;
+                    }
+                    
+                    // Navigation shortcuts (Alt key)
+                    if (e.altKey) {
+                        switch(e.key) {
+                            case 'h':
+                            case '1':
+                                e.preventDefault();
+                                window.location.href = '/';
+                                break;
+                            case 'e':
+                            case '2':
+                                e.preventDefault();
+                                window.location.href = '/explorer';
+                                break;
+                            case 's':
+                            case '3':
+                                e.preventDefault();
+                                window.location.href = '/settings/mapping';
+                                break;
+                        }
+                    }
+                });
+            },
+            
+            showHelp() {
+                const helpHtml = `
+                    <div style="text-align: left; font-size: 0.9rem;">
+                        <div style="margin-bottom: 12px;"><strong>Navigation</strong></div>
+                        <div><kbd>Alt+H</kbd> or <kbd>Alt+1</kbd> — Home</div>
+                        <div><kbd>Alt+E</kbd> or <kbd>Alt+2</kbd> — Explorer</div>
+                        <div><kbd>Alt+S</kbd> or <kbd>Alt+3</kbd> — Settings</div>
+                        <div style="margin: 12px 0;"><strong>Actions</strong></div>
+                        <div><kbd>Ctrl+Enter</kbd> — Submit form</div>
+                        <div><kbd>Escape</kbd> — Close modal/dialog</div>
+                        <div><kbd>Ctrl+/</kbd> — Show this help</div>
+                    </div>
+                `;
+                Toast.info('Keyboard Shortcuts', helpHtml, 8000);
+            }
+        };
+        
+        Shortcuts.init();
+        
+        // Store preferences in localStorage
+        const Prefs = {
+            get(key, defaultValue = null) {
+                const val = localStorage.getItem('sg_' + key);
+                return val ? JSON.parse(val) : defaultValue;
+            },
+            set(key, value) {
+                localStorage.setItem('sg_' + key, JSON.stringify(value));
+            }
+        };
+        
+        // Theme Manager
+        const Theme = {
+            init() {
+                const saved = Prefs.get('theme', 'dark');
+                this.set(saved);
+                
+                // Bind toggle button
+                const toggle = document.getElementById('themeToggle');
+                if (toggle) {
+                    toggle.onclick = () => this.toggle();
+                }
+            },
+            toggle() {
+                const current = document.documentElement.dataset.theme || 'dark';
+                const next = current === 'dark' ? 'light' : 'dark';
+                this.set(next);
+                Toast.info('Theme Changed', `Switched to ${next} mode`);
+            },
+            set(theme) {
+                document.documentElement.dataset.theme = theme;
+                Prefs.set('theme', theme);
+            }
+        };
+        
+        // Initialize theme on page load
+        Theme.init();
+        
+        // Sidebar Manager
+        const Sidebar = {
+            el: document.getElementById('sidebar'),
+            toggle: document.getElementById('sidebarToggle'),
+            mobileBtn: document.getElementById('mobileMenuBtn'),
+            
+            init() {
+                const collapsed = Prefs.get('sidebar_collapsed', false);
+                if (collapsed) this.el.classList.add('collapsed');
+                
+                this.toggle?.addEventListener('click', () => this.toggleCollapse());
+                this.mobileBtn?.addEventListener('click', () => this.toggleMobile());
+                
+                // Close mobile sidebar on outside click
+                document.addEventListener('click', (e) => {
+                    if (this.el.classList.contains('mobile-open') && 
+                        !this.el.contains(e.target) && 
+                        e.target !== this.mobileBtn) {
+                        this.el.classList.remove('mobile-open');
+                    }
+                });
+            },
+            
+            toggleCollapse() {
+                this.el.classList.toggle('collapsed');
+                Prefs.set('sidebar_collapsed', this.el.classList.contains('collapsed'));
+            },
+            
+            toggleMobile() {
+                this.el.classList.toggle('mobile-open');
+            }
+        };
+        
+        Sidebar.init();
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

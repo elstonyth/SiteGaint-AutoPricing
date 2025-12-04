@@ -1,0 +1,917 @@
+{% extends "base.html" %}
+
+{% block title %}Price Update - SiteGiant Pricing{% endblock %}
+{% block nav_home %}active{% endblock %}
+{% block page_title %}Price Update{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error animate-in">
+    <span class="alert-icon">⚠️</span>
+    <div class="alert-content">
+        <div class="alert-title">Error</div>
+        {{ error }}
+    </div>
+</div>
+{% endif %}
+
+<!-- Hero Section -->
+<div class="hero-section animate-in">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            <span class="hero-icon">⚡</span>
+            Price Update
+        </h1>
+        <p class="hero-subtitle">Upload your SiteGiant export to sync prices from Pokedata</p>
+    </div>
+    <div class="hero-stats">
+        <div class="hero-stat">
+            <span class="hero-stat-value">{{ stats.today_processed }}</span>
+            <span class="hero-stat-label">Processed Today</span>
+        </div>
+        <div class="hero-stat">
+            <span class="hero-stat-value">{{ stats.today_updated }}</span>
+            <span class="hero-stat-label">Updated</span>
+        </div>
+        <div class="hero-stat highlight">
+            <span class="hero-stat-value">{{ mapping_row_count|default(0) }}</span>
+            <span class="hero-stat-label">Mapped Products</span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Dashboard Grid -->
+<div class="dashboard-grid animate-in delay-1">
+    
+    <!-- Upload Section - Primary Card -->
+    <div class="upload-hero glass-card">
+        <div class="upload-hero-header">
+            <div class="upload-hero-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Upload SiteGiant Export
+            </div>
+            <span class="upload-hero-hint">Drag & drop or click to browse</span>
+        </div>
+        
+        <form action="/process" method="post" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-dropzone" id="dropzone">
+                <input type="file" id="sitegiant_file" name="sitegiant_file" accept=".xlsx,.xls" required>
+                <div class="upload-dropzone-content">
+                    <div class="upload-dropzone-icon">
+                        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <path d="M12 18v-6"/>
+                            <path d="M9 15l3-3 3 3"/>
+                        </svg>
+                    </div>
+                    <div class="upload-dropzone-text">
+                        <strong>Drop your Excel file here</strong>
+                        <span>or click to browse</span>
+                    </div>
+                    <div class="upload-dropzone-formats">.xlsx, .xls supported</div>
+                </div>
+                <div class="upload-dropzone-selected" id="fileSelected">
+                    <div class="selected-file-icon">📄</div>
+                    <div class="selected-file-info">
+                        <span class="selected-file-name" id="fileName"></span>
+                        <span class="selected-file-size" id="fileSize"></span>
+                    </div>
+                    <button type="button" class="selected-file-remove" id="fileRemove">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Hidden fields -->
+            <input type="hidden" name="fx_rate" value="{{ settings.fx_rate }}">
+            <input type="hidden" name="margin_divisor" value="{{ settings.margin_divisor }}">
+            <input type="hidden" name="soft_threshold" value="{{ settings.soft_threshold }}">
+            <input type="hidden" name="hard_threshold" value="{{ settings.hard_threshold }}">
+            <input type="hidden" name="api_key_override" value="">
+            
+            <div class="upload-actions">
+                <button type="submit" class="btn btn-primary btn-lg btn-glow" id="submitBtn" {% if not mapping_exists %}disabled{% endif %}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                    Process Prices
+                </button>
+                {% if not mapping_exists %}
+                <div class="upload-warning">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>Set up mapping first</span>
+                    <a href="/settings/mapping">Configure →</a>
+                </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+    
+    <!-- Status Cards Column -->
+    <div class="status-column">
+        
+        <!-- System Status Card -->
+        <div class="status-card glass-card">
+            <div class="status-card-header">
+                <span class="status-card-title">System Status</span>
+                <a href="/settings/mapping" class="status-card-action" title="Settings">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </a>
+            </div>
+            <div class="status-indicators">
+                <div class="status-indicator">
+                    <div class="status-indicator-left">
+                        <span class="status-dot {% if api_key_set %}ok{% else %}warn{% endif %}"></span>
+                        <span class="status-indicator-label">Pokedata API</span>
+                    </div>
+                    <span class="status-indicator-value {% if api_key_set %}ok{% else %}warn{% endif %}">
+                        {% if api_key_set %}Connected{% else %}Demo Mode{% endif %}
+                    </span>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-indicator-left">
+                        <span class="status-dot {% if mapping_exists %}ok{% else %}error{% endif %}"></span>
+                        <span class="status-indicator-label">Mapping File</span>
+                    </div>
+                    <span class="status-indicator-value {% if mapping_exists %}ok{% else %}error{% endif %}">
+                        {% if mapping_exists %}{{ mapping_row_count }} SKUs{% else %}Missing{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Config Card -->
+        <div class="config-card glass-card">
+            <div class="config-row">
+                <div class="config-item">
+                    <span class="config-label">FX Rate</span>
+                    <div class="config-value-group">
+                        <span class="config-value" id="fxRateValue">{{ "%.2f"|format(settings.fx_rate) }}</span>
+                        <button type="button" onclick="refreshFxRate()" class="config-refresh" id="refreshFxBtn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">Margin</span>
+                    <span class="config-value">÷ {{ settings.margin_divisor }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions Card -->
+        <div class="actions-card glass-card">
+            <a href="/explorer" class="action-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                <span>Explorer</span>
+            </a>
+            <a href="/settings/mapping" class="action-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Settings</span>
+            </a>
+            <a href="https://www.pokedata.io" target="_blank" class="action-link external">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                <span>Pokedata</span>
+            </a>
+        </div>
+        
+        <!-- Time Display -->
+        <div class="time-card glass-card">
+            <div class="time-display" id="currentTime"></div>
+            <div class="time-last-run">
+                Last run: <strong>{{ stats.last_run_ago }}</strong>
+            </div>
+        </div>
+        
+    </div>
+    
+</div>
+
+{% if not mapping_exists %}
+<!-- Onboarding Banner -->
+<div class="onboarding-banner glass-card animate-in delay-2">
+    <div class="onboarding-banner-icon">🚀</div>
+    <div class="onboarding-banner-content">
+        <h3>First Time Setup</h3>
+        <p>Create a mapping file to link your SiteGiant SKUs with Pokedata products</p>
+    </div>
+    <div class="onboarding-banner-steps">
+        <div class="mini-step"><span>1</span> Export from SiteGiant</div>
+        <div class="mini-step"><span>2</span> Generate template</div>
+        <div class="mini-step"><span>3</span> Fill Pokedata URLs</div>
+        <div class="mini-step"><span>4</span> Upload mapping</div>
+    </div>
+    <a href="/settings/mapping" class="btn btn-primary">Get Started →</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('sitegiant_file');
+    const fileSelected = document.getElementById('fileSelected');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const fileRemove = document.getElementById('fileRemove');
+
+    // Update current time
+    function updateTime() {
+        const now = new Date();
+        const options = { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        document.getElementById('currentTime').textContent = now.toLocaleDateString('en-US', options);
+    }
+    updateTime();
+    setInterval(updateTime, 60000);
+
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Click to open file browser
+    dropzone.addEventListener('click', (e) => {
+        if (e.target !== fileRemove && !fileRemove.contains(e.target)) {
+            fileInput.click();
+        }
+    });
+
+    // Show selected file
+    function showSelectedFile(file) {
+        const validTypes = ['.xlsx', '.xls'];
+        const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+        
+        if (!validTypes.includes(ext)) {
+            Toast.error('Invalid File', 'Please upload an Excel file (.xlsx or .xls)');
+            fileInput.value = '';
+            return;
+        }
+        
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        dropzone.classList.add('has-file');
+        Toast.success('File Selected', file.name);
+    }
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            showSelectedFile(e.target.files[0]);
+        } else {
+            dropzone.classList.remove('has-file');
+        }
+    });
+
+    // Remove file
+    fileRemove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.value = '';
+        dropzone.classList.remove('has-file');
+    });
+
+    // Drag and drop
+    ['dragenter', 'dragover'].forEach(event => {
+        dropzone.addEventListener(event, (e) => {
+            e.preventDefault();
+            dropzone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(event => {
+        dropzone.addEventListener(event, (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-over');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            fileInput.files = files;
+            showSelectedFile(files[0]);
+        }
+    });
+
+    // Form submit
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        if (!fileInput.files[0]) {
+            e.preventDefault();
+            Toast.error('No File', 'Please select a SiteGiant export file');
+            return;
+        }
+        
+        Loading.show('Processing Prices', 'Fetching data from Pokedata API...');
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Processing...';
+    });
+
+    // Refresh FX rate
+    async function refreshFxRate() {
+        const btn = document.getElementById('refreshFxBtn');
+        const rateEl = document.getElementById('fxRateValue');
+        const fxInput = document.querySelector('input[name="fx_rate"]');
+        
+        btn.classList.add('spinning');
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch('/fetch-fx-rate');
+            const data = await response.json();
+            
+            rateEl.textContent = data.rate.toFixed(2);
+            fxInput.value = data.rate;
+            
+            if (data.success) {
+                Toast.success('Rate Updated', `${data.rate.toFixed(2)} USD→MYR`);
+            } else {
+                Toast.warning('Using Fallback', data.error || 'Could not fetch live rate');
+            }
+        } catch (err) {
+            Toast.error('Fetch Failed', 'Network error');
+        } finally {
+            btn.classList.remove('spinning');
+            btn.disabled = false;
+        }
+    }
+</script>
+
+<style>
+/* INDEX PAGE - POLISHED REDESIGN */
+
+/* Animations */
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in { animation: fadeSlideIn 0.5s ease-out both; }
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+
+/* HERO SECTION */
+.hero-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding: 24px 28px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-gradient);
+}
+
+.hero-content { flex: 1; }
+
+.hero-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.hero-icon { font-size: 1.5rem; }
+
+.hero-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.hero-stats {
+    display: flex;
+    gap: 24px;
+}
+
+.hero-stat {
+    text-align: center;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+    min-width: 100px;
+}
+
+.hero-stat.highlight {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.hero-stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: block;
+}
+
+.hero-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+/* DASHBOARD GRID */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+/* UPLOAD HERO CARD */
+.upload-hero {
+    padding: 24px;
+    position: relative;
+}
+
+.upload-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent-gradient);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.upload-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.upload-hero-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.upload-hero-title svg { color: var(--accent-light); }
+
+.upload-hero-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Upload Dropzone */
+.upload-dropzone {
+    position: relative;
+    border: 2px dashed var(--border-highlight);
+    border-radius: var(--radius-md);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.15);
+    margin-bottom: 20px;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(139, 92, 246, 0.05);
+}
+
+.upload-dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-dropzone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.upload-dropzone-icon {
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+}
+
+.upload-dropzone:hover .upload-dropzone-icon {
+    color: var(--accent-light);
+    transform: translateY(-4px);
+}
+
+.upload-dropzone-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.upload-dropzone-text strong {
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.upload-dropzone-text span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.upload-dropzone-formats {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-full);
+}
+
+/* Selected File State */
+.upload-dropzone-selected {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: var(--radius-md);
+}
+
+.upload-dropzone.has-file .upload-dropzone-content { display: none; }
+.upload-dropzone.has-file .upload-dropzone-selected { display: flex; }
+.upload-dropzone.has-file { border-style: solid; border-color: var(--accent); padding: 0; }
+
+.selected-file-icon { font-size: 2rem; }
+
+.selected-file-info {
+    flex: 1;
+    text-align: left;
+}
+
+.selected-file-name {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.selected-file-size {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.selected-file-remove {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.selected-file-remove:hover {
+    background: var(--status-error-bg);
+    border-color: var(--status-error);
+    color: var(--status-error);
+}
+
+/* Upload Actions */
+.upload-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.btn-lg {
+    padding: 16px 32px;
+    font-size: 1rem;
+}
+
+.upload-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--status-warning);
+}
+
+.upload-warning a {
+    margin-left: auto;
+    color: var(--accent-light);
+    font-weight: 500;
+}
+
+/* STATUS COLUMN */
+.status-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Status Card */
+.status-card {
+    padding: 16px 20px;
+}
+
+.status-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.status-card-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.status-card-action {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+}
+
+.status-card-action:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.status-indicators {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.status-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+}
+
+.status-indicator-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-indicator-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.status-indicator-value {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-indicator-value.ok { color: var(--status-ok); }
+.status-indicator-value.warn { color: var(--status-warning); }
+.status-indicator-value.error { color: var(--status-error); }
+
+/* Config Card */
+.config-card {
+    padding: 16px 20px;
+}
+
+.config-row {
+    display: flex;
+    gap: 20px;
+}
+
+.config-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.config-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.config-value-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.config-refresh {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.config-refresh:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.config-refresh.spinning svg {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Actions Card */
+.actions-card {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+}
+
+.action-link {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.action-link:hover {
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--text-primary);
+}
+
+.action-link.external:hover {
+    background: rgba(34, 211, 238, 0.1);
+}
+
+/* Time Card */
+.time-card {
+    padding: 16px 20px;
+    text-align: center;
+}
+
+.time-display {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.time-last-run {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.time-last-run strong {
+    color: var(--text-secondary);
+}
+
+/* ONBOARDING BANNER */
+.onboarding-banner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px;
+    margin-top: 24px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
+}
+
+.onboarding-banner-icon {
+    font-size: 2.5rem;
+}
+
+.onboarding-banner-content {
+    flex: 1;
+}
+
+.onboarding-banner-content h3 {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.onboarding-banner-content p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.onboarding-banner-steps {
+    display: flex;
+    gap: 16px;
+}
+
+.mini-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.mini-step span {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1000px) {
+    .hero-section { flex-direction: column; gap: 20px; text-align: center; }
+    .hero-stats { justify-content: center; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .onboarding-banner { flex-direction: column; text-align: center; }
+    .onboarding-banner-steps { flex-wrap: wrap; justify-content: center; }
+}
+
+@media (max-width: 600px) {
+    .hero-stats { flex-direction: column; gap: 12px; }
+    .hero-stat { min-width: unset; width: 100%; }
+    .config-row { flex-direction: column; gap: 16px; }
+    .actions-card { flex-direction: column; }
+}
+</style>
+{% endblock %}
