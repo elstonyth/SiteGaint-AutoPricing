@@ -1,0 +1,24 @@
+# SiteGiant Pricing - Caddy Configuration
+# Access via: http://sitegiant.local (no port needed)
+
+# Disable automatic HTTPS for local domains
+{
+    auto_https off
+}
+
+# Local domain - HTTP only (no certificate needed for .local)
+http://sitegiant.local {
+    reverse_proxy webapp:8000
+    
+    # Headers for security
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
+
+# Also respond to IP address directly
+http://:80 {
+    reverse_proxy webapp:8000
+}
