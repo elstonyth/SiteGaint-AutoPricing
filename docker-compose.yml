@@ -1,38 +1,104 @@
+# SiteGiant Pricing Automation - Docker Compose
+# Production-ready configuration
+
 services:
-  webapp:
-    build: .
-    container_name: sitegiant-pricing
+  # ============================================================
+  # Caddy Reverse Proxy (access via http://sitegiant.local)
+  # ============================================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: sitegiant-caddy
     ports:
-      - "8000:8000"
+      - "80:80"
+      - "443:443"
     volumes:
-      # Persist data directories
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - webapp
+    restart: unless-stopped
+
+  # ============================================================
+  # Production Service
+  # ============================================================
+  webapp:
+    build:
+      context: .
+      target: production
+    image: sitegiant-pricing:latest
+    container_name: sitegiant-pricing
+    # Internal only - Caddy handles external traffic
+    expose:
+      - "8000"
+    volumes:
+      # Persist data directories (mapping, exports, cache, sessions)
       - ./data:/app/data
       - ./logs:/app/logs
       - ./config:/app/config
     environment:
-      - POKEDATA_API_KEY=${POKEDATA_API_KEY}
+      - POKEDATA_API_KEY=${POKEDATA_API_KEY:-}
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
+      - TZ=${TZ:-Asia/Kuala_Lumpur}
     env_file:
       - .env
     restart: unless-stopped
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
 
-  # Development mode with auto-reload
+  # ============================================================
+  # Development Service (use: docker compose --profile dev up)
+  # ============================================================
   webapp-dev:
-    build: .
+    build:
+      context: .
+      target: production
     container_name: sitegiant-pricing-dev
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./templates:/app/templates:ro
+      - ./static:/app/static:ro
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./logs:/app/logs
     environment:
-      - POKEDATA_API_KEY=${POKEDATA_API_KEY}
+      - POKEDATA_API_KEY=${POKEDATA_API_KEY:-}
+      - UVICORN_WORKERS=1
+      - TZ=${TZ:-Asia/Kuala_Lumpur}
     env_file:
       - .env
     command: uvicorn src.webapp.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
     profiles:
       - dev
+
+# Named volumes
+volumes:
+  caddy_data:
+  caddy_config:
