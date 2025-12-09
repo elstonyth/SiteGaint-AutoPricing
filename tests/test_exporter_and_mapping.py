@@ -61,11 +61,13 @@ def test_find_price_and_sku_column():
 def test_mapping_manager_load_and_join(tmp_path):
     config = AppConfig()
     mapping_path = tmp_path / "mapping.xlsx"
+    # Note: pokedata_id must be provided directly (numeric ID from API)
+    # URL extraction only populates pokedata_name (slug), not pokedata_id
     mapping_df = pd.DataFrame(
         {
             "SKU": ["A"],
             "pokedata_url": ["https://pokedata.io/product/item-123"],
-            "pokedata_id": [""],
+            "pokedata_id": ["12345"],  # Numeric ID from API
             "pokedata_language": ["english"],
             "auto_update": ["Y"],
             "pokedata_asset_type": ["PRODUCT"],
@@ -80,7 +82,7 @@ def test_mapping_manager_load_and_join(tmp_path):
 
     entry = manager.get_mapping("A")
     assert entry is not None
-    assert entry.pokedata_id == "item-123"
+    assert entry.pokedata_id == "12345"  # Now expects numeric ID
     assert entry.language == "ENGLISH"
 
     products = pd.DataFrame({"sku": ["A", "B"], "price": [1.0, 2.0]})

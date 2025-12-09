@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, Body
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -1346,7 +1346,7 @@ async def add_mapping(
     pokedata_asset_type: str = Form("PRODUCT"),
     auto_update: str = Form("Y"),
     notes: str = Form(""),
-    auto_lookup: bool = Form(False),
+    auto_lookup: bool = Form(True),  # Auto-lookup enabled by default
 ):
     """Add a new mapping entry."""
     load_env()
@@ -1419,7 +1419,7 @@ async def update_mapping(
     pokedata_asset_type: str = Form("PRODUCT"),
     auto_update: str = Form("Y"),
     notes: str = Form(""),
-    auto_lookup: bool = Form(False),
+    auto_lookup: bool = Form(True),  # Auto-lookup enabled by default
 ):
     """Update an existing mapping entry."""
     load_env()
@@ -1504,6 +1504,40 @@ async def delete_mapping(sku: str):
         raise
     except Exception as e:
         logger.error(f"Failed to delete mapping: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/mapping/delete-bulk")
+async def delete_mappings_bulk(skus: List[str] = Body(...)):
+    """Delete multiple mapping entries at once."""
+    load_env()
+    config = load_config()
+    mapping_path = get_mapping_master_path(config)
+    
+    if not mapping_path.exists():
+        raise HTTPException(status_code=404, detail="No mapping file found")
+    
+    try:
+        df = pd.read_excel(mapping_path, engine='openpyxl')
+        df.columns = [c.lower().strip() for c in df.columns]
+        
+        # Find and remove
+        original_len = len(df)
+        df = df[~df['sku'].isin(skus)]
+        
+        deleted_count = original_len - len(df)
+        
+        if deleted_count == 0:
+             return {"success": True, "message": "No mappings were deleted", "count": 0}
+        
+        # Save
+        df.to_excel(mapping_path, index=False, engine='openpyxl')
+        
+        logger.info(f"Deleted {deleted_count} mappings")
+        
+        return {"success": True, "message": f"Deleted {deleted_count} mappings", "count": deleted_count}
+    except Exception as e:
+        logger.error(f"Failed to delete mappings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
