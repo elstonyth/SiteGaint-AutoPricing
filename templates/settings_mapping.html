@@ -289,11 +289,24 @@
                 </div>
             </div>
             
+            <div class="bulk-actions glass-card" id="bulkActions" style="display:none; margin-bottom: 20px; background: rgba(139, 92, 246, 0.1); border-color: var(--accent);">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span id="selectedCount" style="font-weight: 600; color: var(--accent-light);">0 selected</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="deleteSelected()" class="btn btn-danger btn-sm" style="background: rgba(248, 113, 113, 0.2); border: 1px solid var(--error); color: var(--error);">🗑️ Delete Selected</button>
+                        <button onclick="clearSelection()" class="btn btn-secondary btn-sm">✖ Clear</button>
+                    </div>
+                </div>
+            </div>
+            
             <div class="mapping-table-container glass-card">
                 <div class="mapping-table-wrapper">
                     <table class="mapping-manager-table" id="mappingTable">
                         <thead>
                             <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
                                 <th>SiteGiant Name</th>
                                 <th>SKU</th>
                                 <th>Pokedata Name</th>
@@ -531,8 +544,8 @@
                             <div class="help-step">
                                 <span class="help-step-number">4</span>
                                 <div class="help-step-content">
-                                    <strong>Upload with Auto-lookup</strong>
-                                    <p>Check "Auto-lookup IDs" and upload your filled template</p>
+                                    <strong>Upload Template</strong>
+                                    <p>Upload your filled template — IDs are looked up automatically</p>
                                 </div>
                             </div>
                         </div>
@@ -591,7 +604,7 @@
                     </div>
                     <div class="help-card-body">
                         <ul class="tips-list">
-                            <li>Use <strong>Auto-lookup</strong> to automatically find Pokedata IDs from URLs</li>
+                            <li>Pokedata IDs are <strong>automatically looked up</strong> from URLs when API key is set</li>
                             <li>Set <strong>auto_update = N</strong> for products you want to exclude from price updates</li>
                             <li>The <strong>FX Rate</strong> auto-refreshes from Google Finance when you click 🔄</li>
                             <li>Products above the <strong>Hard Threshold</strong> won't be included in exports</li>
@@ -626,18 +639,17 @@
                         <button type="button" class="file-remove" id="fileRemove">✕</button>
                     </div>
                 </div>
-                <div class="upload-options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="auto_lookup" value="true" id="autoLookup" {% if api_key_set %}checked{% else %}disabled{% endif %}>
-                        <span class="checkbox-text">
-                            🔍 Auto-map by product name
-                            <span class="checkbox-hint">Searches Pokedata using product name to find matching IDs</span>
-                        </span>
-                    </label>
-                    {% if not api_key_set %}
-                    <div class="upload-warning">⚠️ Auto-mapping requires API key (set in Config tab)</div>
-                    {% endif %}
+                <!-- Auto-lookup is always enabled when API key is set -->
+                <input type="hidden" name="auto_lookup" value="{% if api_key_set %}true{% else %}false{% endif %}">
+                {% if api_key_set %}
+                <div class="upload-info" style="padding: 8px 12px; background: rgba(0, 242, 234, 0.1); border-radius: 8px; font-size: 0.85rem; color: var(--accent-light);">
+                    🔍 Auto-lookup enabled — Missing Pokedata IDs will be searched automatically
                 </div>
+                {% else %}
+                <div class="upload-warning" style="padding: 8px 12px; background: rgba(251, 191, 36, 0.1); border-radius: 8px; font-size: 0.85rem; color: var(--status-warning);">
+                    ⚠️ Auto-lookup disabled — Set API key in Config tab to enable automatic ID lookup
+                </div>
+                {% endif %}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
@@ -987,7 +999,7 @@
     // Upload form submit with confirmation
     document.getElementById('uploadForm').addEventListener('submit', function(e) {
         const mappingExists = {% if mapping_info.exists %}true{% else %}false{% endif %};
-        const autoLookup = document.getElementById('autoLookup').checked;
+        const apiKeySet = {% if api_key_set %}true{% else %}false{% endif %};
         
         if (!fileInput.files[0]) {
             e.preventDefault();
@@ -995,9 +1007,9 @@
             return;
         }
         
-        // Determine loading message based on auto-lookup
-        const loadingTitle = autoLookup ? 'Processing Mapping' : 'Uploading Mapping';
-        const loadingMsg = autoLookup 
+        // Auto-lookup is always enabled when API key is set
+        const loadingTitle = apiKeySet ? 'Processing Mapping' : 'Uploading Mapping';
+        const loadingMsg = apiKeySet 
             ? 'Looking up Pokedata IDs... This may take a moment.' 
             : 'Validating columns...';
         
@@ -1005,14 +1017,14 @@
             e.preventDefault();
             Confirm.show(
                 '⚠️ Replace Mapping?',
-                autoLookup 
-                    ? 'This will overwrite the existing mapping file and lookup Pokedata IDs from URLs.'
+                apiKeySet 
+                    ? 'This will overwrite the existing mapping file and lookup Pokedata IDs automatically.'
                     : 'This will overwrite the existing mapping file.',
                 () => {
                     Loading.show(loadingTitle, loadingMsg);
                     document.getElementById('uploadForm').submit();
                 },
-                { confirmText: autoLookup ? 'Replace & Lookup' : 'Replace' }
+                { confirmText: 'Replace' }
             );
             return;
         }
@@ -1020,7 +1032,7 @@
         Loading.show(loadingTitle, loadingMsg);
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> ' + (autoLookup ? 'Processing...' : 'Uploading...');
+        btn.innerHTML = '<span class="spinner"></span> ' + (apiKeySet ? 'Processing...' : 'Uploading...');
     });
     
     // ============================================
@@ -1054,12 +1066,13 @@
         const tbody = document.getElementById('mappingTableBody');
         
         if (mappings.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No mappings yet. Click "Add New Mapping" to create one.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No mappings yet. Click "Add New Mapping" to create one.</td></tr>';
             return;
         }
         
         tbody.innerHTML = mappings.map(m => `
             <tr data-sku="${escapeHtml(m.sku)}">
+                <td style="text-align: center;"><input type="checkbox" class="row-select" data-sku="${escapeHtml(m.sku)}" onclick="updateSelectionCount()"></td>
                 <td class="name-cell" title="${escapeHtml(m.name || '')}">${escapeHtml(m.name || '-')}</td>
                 <td><code>${escapeHtml(m.sku)}</code></td>
                 <td class="pokename-cell">
@@ -1077,6 +1090,89 @@
                 </td>
             </tr>
         `).join('');
+    }
+    
+    // Bulk Action Functions
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.row-select');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        updateSelectionCount();
+    }
+    
+    function updateSelectionCount() {
+        const selected = document.querySelectorAll('.row-select:checked');
+        const count = selected.length;
+        
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+        const selectAll = document.getElementById('selectAll');
+        
+        // Update count text
+        selectedCount.textContent = `${count} selected`;
+        
+        // Show/hide toolbar
+        if (count > 0) {
+            bulkActions.style.display = 'block';
+        } else {
+            bulkActions.style.display = 'none';
+        }
+        
+        // Update Select All checkbox state
+        const total = document.querySelectorAll('.row-select').length;
+        if (total > 0) {
+            selectAll.checked = count === total;
+            selectAll.indeterminate = count > 0 && count < total;
+        } else {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+    }
+    
+    function clearSelection() {
+        const checkboxes = document.querySelectorAll('.row-select');
+        checkboxes.forEach(cb => cb.checked = false);
+        document.getElementById('selectAll').checked = false;
+        updateSelectionCount();
+    }
+    
+    function getSelectedSkus() {
+        const selected = document.querySelectorAll('.row-select:checked');
+        return Array.from(selected).map(cb => cb.getAttribute('data-sku'));
+    }
+    
+    async function deleteSelected() {
+        const skus = getSelectedSkus();
+        if (skus.length === 0) return;
+        
+        Confirm.show(
+            '🗑️ Delete Selected?',
+            `Are you sure you want to delete ${skus.length} mappings? This cannot be undone.`,
+            async () => {
+                try {
+                    const response = await fetch('/api/mapping/delete-bulk', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(skus)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        Toast.success('Deleted', data.message);
+                        clearSelection();
+                        refreshMappings();
+                    } else {
+                        Toast.error('Error', data.detail || 'Failed to delete mappings');
+                    }
+                } catch (e) {
+                    Toast.error('Error', 'Failed to delete mappings');
+                    console.error(e);
+                }
+            }
+        );
     }
     
     function filterMappings() {

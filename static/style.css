@@ -2554,3 +2554,31 @@ input[type="checkbox"] {
 .editable-price-cell .price-input[type=number] {
     -moz-appearance: textfield;
 }
+
+/* Bulk Actions Toolbar */
+.bulk-actions {
+    position: sticky;
+    top: 20px;
+    z-index: 90;
+    padding: 12px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.row-select {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+/* Ensure checkbox column has proper width */
+th.checkbox-col,
+td.checkbox-cell {
+    width: 40px;
+    text-align: center;
+}

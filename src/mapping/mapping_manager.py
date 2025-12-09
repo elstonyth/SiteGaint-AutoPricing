@@ -303,28 +303,39 @@ class MappingManager:
             raise ValueError(f"Mapping file missing required columns: {missing}. "
                            f"Available columns: {list(df.columns)}")
         
-        # Auto-fill pokedata_id from pokedata_url where ID is empty
+        # NOTE: We no longer auto-fill pokedata_id from URL extraction here.
+        # The URL contains a product NAME/SLUG (e.g., "Hot Air Arena Booster Box"),
+        # NOT a numeric ID. The numeric ID must be obtained via API search.
+        # Use the "Refresh IDs" feature in the UI to look up numeric IDs via API.
+        if "pokedata_id" not in df.columns:
+            df["pokedata_id"] = ""
+        
+        # Auto-fill pokedata_name from URL if pokedata_name is empty (for display purposes only)
         if "pokedata_url" in df.columns:
-            if "pokedata_id" not in df.columns:
-                df["pokedata_id"] = ""
+            if "pokedata_name" not in df.columns:
+                df["pokedata_name"] = ""
             
-            # Find rows where pokedata_id is empty but pokedata_url exists
+            # Find rows where pokedata_name is empty but pokedata_url exists
             mask = (
-                (df["pokedata_id"].isna() | (df["pokedata_id"].astype(str).str.strip() == "")) &
+                (df["pokedata_name"].isna() | (df["pokedata_name"].astype(str).str.strip() == "")) &
                 (df["pokedata_url"].notna() & (df["pokedata_url"].astype(str).str.strip() != ""))
             )
             
             if mask.any():
+                # Ensure pokedata_name is string type to avoid dtype warning
+                df["pokedata_name"] = df["pokedata_name"].astype(str)
+                
                 extracted_count = 0
                 for idx in df[mask].index:
                     url = df.at[idx, "pokedata_url"]
-                    extracted_id = extract_pokedata_id_from_url(url)
-                    if extracted_id:
-                        df.at[idx, "pokedata_id"] = extracted_id
+                    extracted_name = extract_pokedata_id_from_url(url)
+                    if extracted_name:
+                        # Store in pokedata_name (NOT pokedata_id - that needs numeric ID from API)
+                        df.at[idx, "pokedata_name"] = extracted_name
                         extracted_count += 1
                 
                 if extracted_count > 0:
-                    logger.info(f"Auto-extracted {extracted_count} pokedata_id(s) from URLs")
+                    logger.info(f"Auto-extracted {extracted_count} pokedata_name(s) from URLs for display")
         
         # Detect duplicate SKUs
         df["_sku_normalized"] = df["sku"].astype(str).str.strip()
@@ -376,23 +387,17 @@ class MappingManager:
             if not sku:
                 continue
             
-            # Get pokedata_url first (needed for ID extraction fallback)
+            # Get pokedata_url
             pokedata_url = row.get("pokedata_url", "")
             if pd.isna(pokedata_url):
                 pokedata_url = None
             else:
                 pokedata_url = str(pokedata_url).strip() or None
             
-            # Get pokedata_id, with fallback to extracting from URL
+            # Get pokedata_id (must be numeric ID from API, not extracted from URL)
             pokedata_id = row.get("pokedata_id", "")
             if pd.isna(pokedata_id) or str(pokedata_id).strip() == "":
-                # Auto-extract from URL if pokedata_id is empty
-                if pokedata_url:
-                    pokedata_id = extract_pokedata_id_from_url(pokedata_url)
-                    if pokedata_id:
-                        logger.debug(f"Extracted pokedata_id '{pokedata_id}' from URL for SKU {sku}")
-                else:
-                    pokedata_id = ""
+                pokedata_id = ""
             else:
                 pokedata_id = str(pokedata_id).strip()
             
