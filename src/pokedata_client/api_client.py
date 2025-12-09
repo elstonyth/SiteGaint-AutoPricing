@@ -176,7 +176,6 @@ class PokedataClient:
         )
         
         adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
         session.mount("https://", adapter)
         
         return session
