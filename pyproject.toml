@@ -111,6 +111,9 @@ ignore = [
     "E501",   # line too long (handled by black)
     "B008",   # do not perform function calls in argument defaults
     "B905",   # zip without explicit strict
+    "B904",   # raise ... from ...
+    "SIM113", # use enumerate
+    "SIM105", # use contextlib.suppress
 ]
 
 [tool.mypy]

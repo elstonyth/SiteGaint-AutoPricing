@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.utils.config_loader import AppConfig, load_config
 
@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ComponentHealth:
     """Health status of a single component."""
-    
+
     name: str
     status: str  # "ok", "degraded", "error"
-    message: Optional[str] = None
-    latency_ms: Optional[float] = None
-    details: Dict[str, Any] = field(default_factory=dict)
-    
+    message: str | None = None
+    latency_ms: float | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         result = {
             "status": self.status,
@@ -43,49 +43,46 @@ class ComponentHealth:
 @dataclass
 class HealthReport:
     """Complete health report for the application."""
-    
+
     status: str  # "healthy", "degraded", "unhealthy"
     timestamp: str
     version: str
-    components: Dict[str, ComponentHealth] = field(default_factory=dict)
-    
+    components: dict[str, ComponentHealth] = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         return {
             "status": self.status,
             "timestamp": self.timestamp,
             "version": self.version,
-            "components": {
-                name: comp.to_dict() 
-                for name, comp in self.components.items()
-            },
+            "components": {name: comp.to_dict() for name, comp in self.components.items()},
         }
 
 
 class HealthService:
     """Service for checking application health."""
-    
+
     VERSION = "1.0.0"
-    
-    def __init__(self, config: Optional[AppConfig] = None):
+
+    def __init__(self, config: AppConfig | None = None):
         self.config = config or load_config()
         self.project_root = Path(__file__).parent.parent.parent
-    
+
     def get_full_health(self) -> HealthReport:
         """
         Get complete health report for all components.
-        
+
         Returns:
             HealthReport with status of all components.
         """
         components = {}
-        
+
         # Check each component
         components["api_key"] = self._check_api_key()
         components["mapping_file"] = self._check_mapping_file()
         components["fx_rate"] = self._check_fx_rate()
         components["cache"] = self._check_cache()
         components["storage"] = self._check_storage()
-        
+
         # Determine overall status
         statuses = [c.status for c in components.values()]
         if all(s == "ok" for s in statuses):
@@ -94,29 +91,29 @@ class HealthService:
             overall_status = "unhealthy"
         else:
             overall_status = "degraded"
-        
+
         return HealthReport(
             status=overall_status,
             timestamp=datetime.utcnow().isoformat() + "Z",
             version=self.VERSION,
             components=components,
         )
-    
+
     def get_simple_health(self) -> dict:
         """Get simple health check (for load balancers)."""
         return {
             "status": "ok",
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
-    
+
     def _check_api_key(self) -> ComponentHealth:
         """Check if Pokedata API key is configured."""
         from src.storage.settings_store import get_api_key
-        
+
         try:
             api_key = get_api_key()
             env_key = os.environ.get("POKEDATA_API_KEY", "")
-            
+
             if api_key or env_key:
                 return ComponentHealth(
                     name="api_key",
@@ -136,16 +133,14 @@ class HealthService:
                 status="error",
                 message=str(e),
             )
-    
+
     def _check_mapping_file(self) -> ComponentHealth:
         """Check if mapping file exists and is valid."""
         try:
             mapping_path = self.project_root / getattr(
-                self.config.paths, 
-                'mapping_master_path', 
-                'data/mapping/master_mapping.xlsx'
+                self.config.paths, "mapping_master_path", "data/mapping/master_mapping.xlsx"
             )
-            
+
             if not mapping_path.exists():
                 return ComponentHealth(
                     name="mapping_file",
@@ -153,15 +148,15 @@ class HealthService:
                     message="Mapping file not found",
                     details={"path": str(mapping_path)},
                 )
-            
+
             # Try to read the file
-            import pandas as pd
+
             from src.utils.excel_utils import read_excel_file
-            
+
             start = time.time()
             df = read_excel_file(mapping_path)
             latency = (time.time() - start) * 1000
-            
+
             return ComponentHealth(
                 name="mapping_file",
                 status="ok",
@@ -178,16 +173,16 @@ class HealthService:
                 status="error",
                 message=str(e),
             )
-    
+
     def _check_fx_rate(self) -> ComponentHealth:
         """Check FX rate availability."""
         try:
             from src.pricing.fx_provider import get_fx_rate
-            
+
             start = time.time()
             rate, source = get_fx_rate(self.config)
             latency = (time.time() - start) * 1000
-            
+
             if rate and rate > 0:
                 return ComponentHealth(
                     name="fx_rate",
@@ -213,26 +208,26 @@ class HealthService:
                 status="error",
                 message=str(e),
             )
-    
+
     def _check_cache(self) -> ComponentHealth:
         """Check cache directory status."""
         try:
-            cache_config = getattr(self.config, 'cache', None)
+            cache_config = getattr(self.config, "cache", None)
             if not cache_config:
                 return ComponentHealth(
                     name="cache",
                     status="ok",
                     message="Cache not configured",
                 )
-            cache_dir = self.project_root / getattr(cache_config, 'cache_dir', 'data/cache')
-            
+            cache_dir = self.project_root / getattr(cache_config, "cache_dir", "data/cache")
+
             if not cache_dir.exists():
                 cache_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Count cache entries
             cache_files = list(cache_dir.glob("*.json")) + list(cache_dir.glob("*.csv"))
             total_size = sum(f.stat().st_size for f in cache_files)
-            
+
             return ComponentHealth(
                 name="cache",
                 status="ok",
@@ -249,31 +244,52 @@ class HealthService:
                 status="error",
                 message=str(e),
             )
-    
+
     def _check_storage(self) -> ComponentHealth:
         """Check storage directories."""
         try:
-            paths_config = getattr(self.config, 'paths', None)
+            paths_config = getattr(self.config, "paths", None)
             dirs_to_check = [
-                ("input", getattr(paths_config, 'sitegiant_export_dir', 'data/input') if paths_config else 'data/input'),
-                ("output", getattr(paths_config, 'output_dir', 'data/output') if paths_config else 'data/output'),
-                ("mapping", getattr(paths_config, 'mapping_dir', 'data/mapping') if paths_config else 'data/mapping'),
+                (
+                    "input",
+                    (
+                        getattr(paths_config, "sitegiant_export_dir", "data/input")
+                        if paths_config
+                        else "data/input"
+                    ),
+                ),
+                (
+                    "output",
+                    (
+                        getattr(paths_config, "output_dir", "data/output")
+                        if paths_config
+                        else "data/output"
+                    ),
+                ),
+                (
+                    "mapping",
+                    (
+                        getattr(paths_config, "mapping_dir", "data/mapping")
+                        if paths_config
+                        else "data/mapping"
+                    ),
+                ),
             ]
-            
+
             missing = []
             for name, rel_path in dirs_to_check:
                 path = self.project_root / rel_path
                 if not path.exists():
                     missing.append(name)
                     path.mkdir(parents=True, exist_ok=True)
-            
+
             if missing:
                 return ComponentHealth(
                     name="storage",
                     status="degraded",
                     message=f"Created missing directories: {', '.join(missing)}",
                 )
-            
+
             return ComponentHealth(
                 name="storage",
                 status="ok",
@@ -288,7 +304,7 @@ class HealthService:
 
 
 # Singleton instance
-_health_service: Optional[HealthService] = None
+_health_service: HealthService | None = None
 
 
 def get_health_service() -> HealthService:

@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 
 from src.exporter.sitegiant_exporter import (
     SiteGiantExporter,
@@ -43,11 +42,15 @@ def test_include_and_build_update_dataframe():
             "new_price_myr": [15.0, 99.0],
         }
     )
-    marked = add_include_in_update_column(results, status_column="status", auto_update_column="auto_update")
+    marked = add_include_in_update_column(
+        results, status_column="status", auto_update_column="auto_update"
+    )
     assert marked["include_in_update"].tolist() == [True, False]
 
     original = pd.DataFrame({"SKU": ["A", "B"], "Price": [10.0, 20.0]})
-    updated = build_update_dataframe(original, marked, price_column="Price", include_column="include_in_update")
+    updated = build_update_dataframe(
+        original, marked, price_column="Price", include_column="include_in_update"
+    )
     assert updated.loc[updated["SKU"] == "A", "Price"].iloc[0] == 15.0
     assert updated.loc[updated["SKU"] == "B", "Price"].iloc[0] == 20.0
 

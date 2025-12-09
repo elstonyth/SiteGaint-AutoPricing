@@ -1,22 +1,18 @@
-import asyncio
-import datetime
 import tempfile
 
 import pandas as pd
 import pytest
 
-from src.webapp.main import health_check, readiness_check
-from src.webapp.routes import (
-    cleanup_expired_sessions,
-    sessions,
-)
 from src.storage.session_store import (
-    DEFAULT_SESSION_EXPIRY_HOURS,
     SessionStore,
 )
 from src.webapp.helpers import (
     format_results_for_display,
     validate_mapping_columns,
+)
+from src.webapp.main import health_check, readiness_check
+from src.webapp.routes import (
+    sessions,
 )
 from src.webapp.schemas import StatusCounts
 
@@ -33,10 +29,10 @@ def test_cleanup_expired_sessions_removes_old_entries():
     # Use a temporary directory for this test
     with tempfile.TemporaryDirectory() as tmpdir:
         store = SessionStore(session_dir=tmpdir, expiry_hours=0)
-        
+
         # Create a sample dataframe
         df = pd.DataFrame({"sku": ["A"], "price": [100.0]})
-        
+
         # Create a session (will be immediately expired with 0 hours expiry)
         store.create(
             session_id="test-old",
@@ -44,7 +40,7 @@ def test_cleanup_expired_sessions_removes_old_entries():
             results_df=df,
             config={},
         )
-        
+
         # Cleanup should remove it
         removed = store.cleanup()
         assert removed == 1

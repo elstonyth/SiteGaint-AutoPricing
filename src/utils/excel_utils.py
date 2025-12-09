@@ -7,7 +7,6 @@ Consolidates all Excel reading logic to prevent engine mismatches.
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Union
 
 import pandas as pd
 
@@ -22,19 +21,19 @@ EXCEL_ENGINES = {
 
 
 def read_excel_file(
-    source: Union[bytes, Path, str],
+    source: bytes | Path | str,
     filename: str = None,
 ) -> pd.DataFrame:
     """
     Read Excel or CSV file with correct engine selection.
-    
+
     Args:
         source: File content as bytes, or path to file.
         filename: Original filename (required if source is bytes).
-        
+
     Returns:
         Loaded DataFrame.
-        
+
     Raises:
         ValueError: If file format is unsupported or file is corrupt.
     """
@@ -48,7 +47,7 @@ def read_excel_file(
             raise ValueError("filename is required when source is bytes")
         suffix = Path(filename).suffix.lower()
         file_source = BytesIO(source)
-    
+
     try:
         if suffix == ".csv":
             logger.debug(f"Reading CSV file: {filename or source}")
@@ -59,8 +58,7 @@ def read_excel_file(
             return pd.read_excel(file_source, engine=engine)
         else:
             raise ValueError(
-                f"Unsupported file format: {suffix}. "
-                f"Supported formats: .xlsx, .xls, .csv"
+                f"Unsupported file format: {suffix}. " f"Supported formats: .xlsx, .xls, .csv"
             )
     except ValueError:
         raise
@@ -70,12 +68,12 @@ def read_excel_file(
 
 def write_excel_file(
     df: pd.DataFrame,
-    path: Union[Path, str],
+    path: Path | str,
     sheet_name: str = "Sheet1",
 ) -> None:
     """
     Write DataFrame to Excel file.
-    
+
     Args:
         df: DataFrame to write.
         path: Output file path.
@@ -83,14 +81,14 @@ def write_excel_file(
     """
     path = Path(path)
     suffix = path.suffix.lower()
-    
+
     if suffix == ".csv":
         df.to_csv(path, index=False)
     elif suffix in (".xlsx", ".xls"):
         df.to_excel(path, index=False, sheet_name=sheet_name, engine="openpyxl")
     else:
         raise ValueError(f"Unsupported output format: {suffix}")
-    
+
     logger.info(f"Wrote {len(df)} rows to {path}")
 
 

@@ -4,13 +4,13 @@ Status codes for price change assessment.
 Defines constants for different price update statuses after threshold checking.
 """
 
-from enum import Enum, auto
+from enum import Enum
 
 
 class PriceStatus(str, Enum):
     """
     Status codes for price update decisions.
-    
+
     Values:
         OK: Price change within acceptable limits, safe to update.
         WARNING: Price change exceeds soft threshold, review recommended.
@@ -20,6 +20,7 @@ class PriceStatus(str, Enum):
         ERROR: Error occurred during price calculation.
         SKIPPED: Product intentionally skipped (e.g., out of stock).
     """
+
     OK = "OK"
     WARNING = "WARNING"
     BLOCKED = "BLOCKED"
@@ -32,13 +33,14 @@ class PriceStatus(str, Enum):
 class ChangeDirection(str, Enum):
     """
     Direction of price change.
-    
+
     Values:
         INCREASE: New price is higher than current.
         DECREASE: New price is lower than current.
         NO_CHANGE: Prices are equal.
         UNKNOWN: Cannot determine (missing data).
     """
+
     INCREASE = "INCREASE"
     DECREASE = "DECREASE"
     NO_CHANGE = "NO_CHANGE"
@@ -47,13 +49,13 @@ class ChangeDirection(str, Enum):
 
 # Color codes for GUI display
 STATUS_COLORS = {
-    PriceStatus.OK: "#28a745",        # Green
-    PriceStatus.WARNING: "#ffc107",   # Yellow/Orange
-    PriceStatus.BLOCKED: "#dc3545",   # Red
-    PriceStatus.NO_DATA: "#6c757d",   # Gray
+    PriceStatus.OK: "#28a745",  # Green
+    PriceStatus.WARNING: "#ffc107",  # Yellow/Orange
+    PriceStatus.BLOCKED: "#dc3545",  # Red
+    PriceStatus.NO_DATA: "#6c757d",  # Gray
     PriceStatus.UNMAPPED: "#6c757d",  # Gray
-    PriceStatus.ERROR: "#dc3545",     # Red
-    PriceStatus.SKIPPED: "#17a2b8",   # Blue/Teal
+    PriceStatus.ERROR: "#dc3545",  # Red
+    PriceStatus.SKIPPED: "#17a2b8",  # Blue/Teal
 }
 
 
@@ -72,10 +74,10 @@ STATUS_DESCRIPTIONS = {
 def get_status_color(status: PriceStatus) -> str:
     """
     Get the display color for a status.
-    
+
     Args:
         status: The price status.
-        
+
     Returns:
         str: Hex color code.
     """
@@ -85,10 +87,10 @@ def get_status_color(status: PriceStatus) -> str:
 def get_status_description(status: PriceStatus) -> str:
     """
     Get a human-readable description for a status.
-    
+
     Args:
         status: The price status.
-        
+
     Returns:
         str: Status description.
     """

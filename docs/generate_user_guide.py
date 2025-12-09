@@ -1,8 +1,10 @@
 """
 Generate User Guide PDF with annotated screenshots - Professional Design v2.
 """
+
 import os
 from pathlib import Path
+
 from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont
 
@@ -24,19 +26,21 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 def get_font(size=16, bold=False):
     try:
         return ImageFont.truetype("arialbd.ttf" if bold else "arial.ttf", size)
-    except:
+    except Exception:
         return ImageFont.load_default()
 
 
 def draw_callout(draw, position, number, color="#FF6B6B"):
     x, y = position
     radius = 16
-    draw.ellipse([(x-radius, y-radius), (x+radius, y+radius)], fill=color, outline="white", width=2)
+    draw.ellipse(
+        [(x - radius, y - radius), (x + radius, y + radius)], fill=color, outline="white", width=2
+    )
     font = get_font(18, bold=True)
     text = str(number)
     bbox = draw.textbbox((0, 0), text, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    draw.text((x - tw/2, y - th/2 - 2), text, fill="white", font=font)
+    draw.text((x - tw / 2, y - th / 2 - 2), text, fill="white", font=font)
 
 
 def draw_box(draw, bbox, color="#FF6B6B", width=3):
@@ -46,7 +50,7 @@ def draw_box(draw, bbox, color="#FF6B6B", width=3):
 
 def annotate_home(img_path, output_path):
     img = Image.open(img_path)
-    draw = ImageDraw.Draw(img, 'RGBA')
+    draw = ImageDraw.Draw(img, "RGBA")
     # Image is 1280x800 - scale coordinates accordingly
     # 1. Upload SiteGiant Export card (header + dashed drop zone)
     draw_box(draw, (302, 185, 838, 525), "#FF6B6B", 3)
@@ -60,12 +64,12 @@ def annotate_home(img_path, output_path):
     # 4. FX Rate & Margin card
     draw_box(draw, (868, 398, 1218, 508), "#4ECDC4", 3)
     draw_callout(draw, (1235, 453), 4, "#4ECDC4")
-    img.convert('RGB').save(output_path, quality=95)
+    img.convert("RGB").save(output_path, quality=95)
 
 
 def annotate_mapping(img_path, output_path):
     img = Image.open(img_path)
-    draw = ImageDraw.Draw(img, 'RGBA')
+    draw = ImageDraw.Draw(img, "RGBA")
     # Image is 1280x800 - scale coordinates accordingly
     # 1. Add button (green + Add)
     draw_box(draw, (838, 195, 900, 228), "#FF6B6B", 3)
@@ -82,12 +86,12 @@ def annotate_mapping(img_path, output_path):
     # 5. Table area
     draw_box(draw, (318, 325, 1210, 772), "#4ECDC4", 2)
     draw_callout(draw, (280, 548), 5, "#4ECDC4")
-    img.convert('RGB').save(output_path, quality=95)
+    img.convert("RGB").save(output_path, quality=95)
 
 
 def annotate_config(img_path, output_path):
     img = Image.open(img_path)
-    draw = ImageDraw.Draw(img, 'RGBA')
+    draw = ImageDraw.Draw(img, "RGBA")
     # Image is 1280x800 - scale coordinates accordingly
     # 1. API Key card
     draw_box(draw, (302, 187, 750, 393), "#FF6B6B", 3)
@@ -101,12 +105,12 @@ def annotate_config(img_path, output_path):
     # 4. Mapping File card
     draw_box(draw, (778, 435, 1222, 698), "#95E1D3", 3)
     draw_callout(draw, (1240, 566), 4, "#95E1D3")
-    img.convert('RGB').save(output_path, quality=95)
+    img.convert("RGB").save(output_path, quality=95)
 
 
 def annotate_explorer(img_path, output_path):
     img = Image.open(img_path)
-    draw = ImageDraw.Draw(img, 'RGBA')
+    draw = ImageDraw.Draw(img, "RGBA")
     # Image is 1280x800 - scale coordinates accordingly
     # 1. Search box (text input with "Booster Box")
     draw_box(draw, (422, 106, 848, 143), "#FF6B6B", 3)
@@ -120,7 +124,7 @@ def annotate_explorer(img_path, output_path):
     # 4. Results table
     draw_box(draw, (298, 206, 1218, 778), "#4ECDC4", 2)
     draw_callout(draw, (260, 492), 4, "#4ECDC4")
-    img.convert('RGB').save(output_path, quality=95)
+    img.convert("RGB").save(output_path, quality=95)
 
 
 def annotate_sg_webstore_cropped(img_path, output_path):
@@ -129,14 +133,14 @@ def annotate_sg_webstore_cropped(img_path, output_path):
     # Crop to show header + menu area (top portion with context)
     # Keep sidebar visible for navigation context
     cropped = img.crop((0, 50, 960, 450))  # x1, y1, x2, y2
-    draw = ImageDraw.Draw(cropped, 'RGBA')
+    draw = ImageDraw.Draw(cropped, "RGBA")
     # 1. Three-dots menu button (adjusted for crop)
     draw_box(draw, (755, 28, 790, 52), "#FF6B6B", 3)
     draw_callout(draw, (772, 8), 1)
     # 2. Products menu in sidebar
     draw_box(draw, (18, 118, 195, 145), "#4ECDC4", 2)
     draw_callout(draw, (208, 131), 2, "#4ECDC4")
-    cropped.convert('RGB').save(output_path, quality=95)
+    cropped.convert("RGB").save(output_path, quality=95)
 
 
 def annotate_sg_import_cropped(img_path, output_path):
@@ -144,7 +148,7 @@ def annotate_sg_import_cropped(img_path, output_path):
     img = Image.open(img_path)
     # Crop to show import area (remove footer)
     cropped = img.crop((0, 0, 960, 480))  # x1, y1, x2, y2
-    draw = ImageDraw.Draw(cropped, 'RGBA')
+    draw = ImageDraw.Draw(cropped, "RGBA")
     # 1. Sample template download link
     draw_box(draw, (115, 148, 265, 170), "#4ECDC4", 3)
     draw_callout(draw, (90, 159), 1, "#4ECDC4")
@@ -154,7 +158,7 @@ def annotate_sg_import_cropped(img_path, output_path):
     # 3. Next button
     draw_box(draw, (875, 70, 925, 100), "#FF6B6B", 3)
     draw_callout(draw, (900, 50), 3)
-    cropped.convert('RGB').save(output_path, quality=95)
+    cropped.convert("RGB").save(output_path, quality=95)
 
 
 class UserGuidePDF(FPDF):
@@ -162,7 +166,7 @@ class UserGuidePDF(FPDF):
         if self.page_no() == 1:
             return
         self.set_fill_color(*COLOR_SECONDARY)
-        self.rect(0, 0, 210, 18, 'F')
+        self.rect(0, 0, 210, 18, "F")
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(255, 255, 255)
         self.set_xy(10, 5)
@@ -185,7 +189,7 @@ class UserGuidePDF(FPDF):
         self.set_text_color(*COLOR_SECONDARY)
         x, y = self.get_x(), self.get_y()
         self.set_fill_color(*COLOR_PRIMARY)
-        self.rect(x, y + 3, 4, 7, 'F')
+        self.rect(x, y + 3, 4, 7, "F")
         self.set_x(x + 8)
         self.cell(0, 12, title, new_x="LMARGIN", new_y="NEXT")
         self.ln(3)
@@ -232,14 +236,14 @@ class UserGuidePDF(FPDF):
 def generate_pdf():
     pdf = UserGuidePDF()
     pdf.set_auto_page_break(auto=True, margin=15)
-    
+
     # Cover
     pdf.add_page()
     pdf.set_fill_color(*COLOR_SECONDARY)
-    pdf.rect(0, 0, 210, 297, 'F')
+    pdf.rect(0, 0, 210, 297, "F")
     pdf.set_fill_color(*COLOR_PRIMARY)
-    pdf.rect(0, 0, 210, 12, 'F')
-    pdf.rect(0, 285, 210, 12, 'F')
+    pdf.rect(0, 0, 210, 12, "F")
+    pdf.rect(0, 285, 210, 12, "F")
     pdf.ln(70)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Helvetica", "B", 32)
@@ -263,7 +267,14 @@ def generate_pdf():
     pdf.add_page()
     pdf.section_title("Contents")
     pdf.ln(5)
-    for title, pg in [("1. Quick Start", 3), ("2. Home - Price Update", 4), ("3. Mapping Manager", 5), ("4. Configuration", 6), ("5. Explorer", 7), ("6. Upload to SiteGiant", 8)]:
+    for title, pg in [
+        ("1. Quick Start", 3),
+        ("2. Home - Price Update", 4),
+        ("3. Mapping Manager", 5),
+        ("4. Configuration", 6),
+        ("5. Explorer", 7),
+        ("6. Upload to SiteGiant", 8),
+    ]:
         pdf.set_text_color(*COLOR_SECONDARY)
         pdf.set_font("Helvetica", "", 11)
         pdf.cell(160, 8, title)
@@ -273,7 +284,9 @@ def generate_pdf():
     # 1. Quick Start
     pdf.add_page()
     pdf.section_title("1. Quick Start")
-    pdf.body_text("This tool syncs SiteGiant prices with Pokedata market values. Follow these steps:")
+    pdf.body_text(
+        "This tool syncs SiteGiant prices with Pokedata market values. Follow these steps:"
+    )
     pdf.ln(3)
     pdf.step(1, "Set API Key", "Go to Settings > Config and enter your Pokedata API key.")
     pdf.step(2, "Create Mapping", "Link your SiteGiant SKUs to Pokedata products.")
@@ -342,7 +355,7 @@ def generate_pdf():
     pdf.section_title("6. Upload to SiteGiant")
     pdf.body_text("After exporting updated prices, upload them back to SiteGiant.")
     pdf.ln(2)
-    
+
     # Step 1: Navigate
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*COLOR_SECONDARY)
@@ -351,7 +364,7 @@ def generate_pdf():
     pdf.set_text_color(*COLOR_TEXT)
     pdf.multi_cell(0, 5, "Log in to sitegiant.co > Products > Webstore Listing")
     pdf.ln(2)
-    
+
     sg_webstore = SCREENSHOT_DIR / "sitegiant_webstore_listing.png"
     if sg_webstore.exists():
         annotated = OUTPUT_DIR / "annotated_sg_webstore_crop.png"
@@ -360,7 +373,7 @@ def generate_pdf():
     pdf.step(1, "Three-Dots Menu", "Click to open the dropdown menu.")
     pdf.step(2, "Products Menu", "Shows you're in the right section.", COLOR_TEAL)
     pdf.ln(2)
-    
+
     # Step 2: Select Import
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*COLOR_SECONDARY)
@@ -369,13 +382,13 @@ def generate_pdf():
     pdf.set_text_color(*COLOR_TEXT)
     pdf.multi_cell(0, 5, "From the dropdown menu, click 'Import Products'.")
     pdf.ln(3)
-    
+
     # Step 3: Upload file
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*COLOR_SECONDARY)
     pdf.cell(0, 6, "Step 3: Upload Excel File", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
-    
+
     sg_import = SCREENSHOT_DIR / "sitegiant_import_products.png"
     if sg_import.exists():
         annotated = OUTPUT_DIR / "annotated_sg_import_crop.png"

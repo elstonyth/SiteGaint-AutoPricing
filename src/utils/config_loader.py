@@ -4,15 +4,14 @@ Configuration loader module.
 Loads application configuration from YAML files and environment variables.
 """
 
-import os
 import logging
-from pathlib import Path
-from typing import Any, Dict, Optional
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PathsConfig:
     """File path configuration."""
+
     input_dir: str = "data/input"
     output_dir: str = "data/output"
     mapping_dir: str = "data/mapping"
@@ -32,6 +32,7 @@ class PathsConfig:
 @dataclass
 class GoogleFXConfig:
     """Google Finance FX configuration."""
+
     base_currency: str = "USD"
     quote_currency: str = "MYR"
     pair_symbol: str = "USD-MYR"
@@ -41,6 +42,7 @@ class GoogleFXConfig:
 @dataclass
 class FXConfig:
     """FX conversion configuration."""
+
     mode: str = "google"  # "google" or "manual"
     default_rate: float = 4.70
     margin_divisor: float = 0.8
@@ -50,14 +52,16 @@ class FXConfig:
 @dataclass
 class RoundingConfig:
     """Price rounding configuration."""
+
     decimal_places: int = 2
     method: str = "round"
-    round_to_nearest: Optional[float] = None
+    round_to_nearest: float | None = None
 
 
 @dataclass
 class ThresholdLevelConfig:
     """Single threshold level configuration."""
+
     vs_sitegiant_pct: float = 20.0
     vs_previous_pct: float = 15.0
 
@@ -65,6 +69,7 @@ class ThresholdLevelConfig:
 @dataclass
 class ThresholdsConfig:
     """Threshold configuration for soft and hard limits."""
+
     soft: ThresholdLevelConfig = field(default_factory=lambda: ThresholdLevelConfig(20.0, 15.0))
     hard: ThresholdLevelConfig = field(default_factory=lambda: ThresholdLevelConfig(50.0, 30.0))
 
@@ -72,6 +77,7 @@ class ThresholdsConfig:
 @dataclass
 class PokedataConfig:
     """Pokedata API configuration."""
+
     api_key_env: str = "POKEDATA_API_KEY"
     base_url: str = "https://www.pokedata.io"
     search_endpoint: str = "/v0/search"
@@ -84,6 +90,7 @@ class PokedataConfig:
 @dataclass
 class SiteGiantColumnsConfig:
     """SiteGiant column name configuration."""
+
     sku: str = "SKU"
     product_name: str = "Product Name"
     current_price: str = "Price"
@@ -94,6 +101,7 @@ class SiteGiantColumnsConfig:
 @dataclass
 class SiteGiantFiltersConfig:
     """SiteGiant filter configuration."""
+
     in_stock_only: bool = False
     active_only: bool = True
 
@@ -101,6 +109,7 @@ class SiteGiantFiltersConfig:
 @dataclass
 class SiteGiantConfig:
     """SiteGiant configuration."""
+
     columns: SiteGiantColumnsConfig = field(default_factory=SiteGiantColumnsConfig)
     filters: SiteGiantFiltersConfig = field(default_factory=SiteGiantFiltersConfig)
 
@@ -108,6 +117,7 @@ class SiteGiantConfig:
 @dataclass
 class LoggingConfig:
     """Logging configuration."""
+
     level: str = "INFO"
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
@@ -115,6 +125,7 @@ class LoggingConfig:
 @dataclass
 class GUIConfig:
     """GUI configuration."""
+
     title: str = "SiteGiant Pricing Automation"
     page_size: int = 50
     theme: str = "light"
@@ -123,6 +134,7 @@ class GUIConfig:
 @dataclass
 class MappingConfig:
     """Mapping file configuration."""
+
     # How to handle duplicate SKUs: "merge" (keep last) or "ignore" (keep first)
     duplicate_handling: str = "merge"
 
@@ -131,9 +143,10 @@ class MappingConfig:
 class AppConfig:
     """
     Main application configuration.
-    
+
     Aggregates all configuration sections into a single object.
     """
+
     paths: PathsConfig = field(default_factory=PathsConfig)
     fx: FXConfig = field(default_factory=FXConfig)
     rounding: RoundingConfig = field(default_factory=RoundingConfig)
@@ -148,7 +161,7 @@ class AppConfig:
 def load_env(env_file: Path = Path(".env")) -> None:
     """
     Load environment variables from .env file.
-    
+
     Args:
         env_file: Path to .env file.
     """
@@ -162,13 +175,13 @@ def load_env(env_file: Path = Path(".env")) -> None:
 def load_config(config_file: Path = Path("config/config.yaml")) -> AppConfig:
     """
     Load application configuration from YAML file.
-    
+
     Args:
         config_file: Path to configuration YAML file.
-        
+
     Returns:
         AppConfig: Loaded configuration object.
-        
+
     Raises:
         FileNotFoundError: If config file doesn't exist.
         yaml.YAMLError: If config file is invalid.
@@ -176,26 +189,26 @@ def load_config(config_file: Path = Path("config/config.yaml")) -> AppConfig:
     if not config_file.exists():
         logger.warning(f"Config file not found: {config_file}. Using defaults.")
         return AppConfig()
-    
-    with open(config_file, "r", encoding="utf-8") as f:
+
+    with open(config_file, encoding="utf-8") as f:
         raw_config = yaml.safe_load(f)
-    
+
     if raw_config is None:
         return AppConfig()
-    
+
     # Parse raw_config into AppConfig dataclass
     config = _parse_config(raw_config)
     logger.info(f"Loaded configuration from: {config_file}")
     return config
 
 
-def _parse_config(raw: Dict[str, Any]) -> AppConfig:
+def _parse_config(raw: dict[str, Any]) -> AppConfig:
     """
     Parse raw YAML dict into AppConfig dataclass.
-    
+
     Args:
         raw: Raw dictionary from YAML file.
-        
+
     Returns:
         AppConfig: Parsed configuration object.
     """
@@ -213,7 +226,7 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
     # Add mapping_master_path as extra attribute
     if "mapping_master_path" in paths_raw:
         paths.mapping_master_path = paths_raw["mapping_master_path"]
-    
+
     # Parse FX config
     fx_raw = raw.get("fx", {})
     google_raw = fx_raw.get("google", {})
@@ -229,7 +242,7 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
         margin_divisor=fx_raw.get("margin_divisor", 0.8),
         google=google_config,
     )
-    
+
     # Parse rounding config
     rounding_raw = raw.get("rounding", {})
     rounding = RoundingConfig(
@@ -237,7 +250,7 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
         method=rounding_raw.get("method", "round"),
         round_to_nearest=rounding_raw.get("round_to_nearest"),
     )
-    
+
     # Parse thresholds config
     thresholds_raw = raw.get("thresholds", {})
     soft_raw = thresholds_raw.get("soft", {})
@@ -252,7 +265,7 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
             vs_previous_pct=hard_raw.get("vs_previous_pct", 30.0),
         ),
     )
-    
+
     # Parse pokedata config
     pokedata_raw = raw.get("pokedata", {})
     pokedata = PokedataConfig(
@@ -264,7 +277,7 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
         retry_delay=pokedata_raw.get("retry_delay", 1.0),
         rate_limit=pokedata_raw.get("rate_limit", 5),
     )
-    
+
     # Parse sitegiant config
     sitegiant_raw = raw.get("sitegiant", {})
     columns_raw = sitegiant_raw.get("columns", {})
@@ -282,14 +295,14 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
             active_only=filters_raw.get("active_only", True),
         ),
     )
-    
+
     # Parse logging config
     logging_raw = raw.get("logging", {})
     logging_config = LoggingConfig(
         level=logging_raw.get("level", "INFO"),
         format=logging_raw.get("format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
     )
-    
+
     # Parse GUI config
     gui_raw = raw.get("gui", {})
     gui = GUIConfig(
@@ -297,13 +310,13 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
         page_size=gui_raw.get("page_size", 50),
         theme=gui_raw.get("theme", "light"),
     )
-    
+
     # Parse mapping config
     mapping_raw = raw.get("mapping", {})
     mapping = MappingConfig(
         duplicate_handling=mapping_raw.get("duplicate_handling", "merge"),
     )
-    
+
     return AppConfig(
         paths=paths,
         fx=fx,
@@ -317,24 +330,24 @@ def _parse_config(raw: Dict[str, Any]) -> AppConfig:
     )
 
 
-def get_env_var(key: str, default: Optional[str] = None) -> Optional[str]:
+def get_env_var(key: str, default: str | None = None) -> str | None:
     """
     Get an environment variable with optional default.
-    
+
     Args:
         key: Environment variable name.
         default: Default value if not set.
-        
+
     Returns:
         Environment variable value or default.
     """
     return os.environ.get(key, default)
 
 
-def get_api_key() -> Optional[str]:
+def get_api_key() -> str | None:
     """
     Get the Pokedata API key from environment.
-    
+
     Returns:
         API key if set, None otherwise.
     """

@@ -6,18 +6,20 @@ Contains typed dataclasses/models for API response parsing and validation.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Dict, Any
 from enum import Enum
+from typing import Any
 
 
 class ProductLanguage(str, Enum):
     """Product language options."""
+
     ENGLISH = "ENGLISH"
     JAPANESE = "JAPANESE"
 
 
 class AssetType(str, Enum):
     """Product asset type categories."""
+
     BOOSTER_BOX = "Booster Box"
     ELITE_TRAINER_BOX = "Elite Trainer Box"
     BOOSTER_PACK = "Booster Pack"
@@ -31,7 +33,7 @@ class AssetType(str, Enum):
 class PokedataPriceInfo:
     """
     Simplified price info returned by the client.
-    
+
     Attributes:
         product_id: Pokedata product ID.
         primary_price_usd: Primary/best price in USD (may be None if unavailable).
@@ -40,11 +42,12 @@ class PokedataPriceInfo:
         error: Error message if fetch failed.
         cached: True if returned from cache (no API call made).
     """
+
     product_id: str
-    primary_price_usd: Optional[float] = None
-    source: Optional[str] = None
-    raw_prices: Dict[str, float] = field(default_factory=dict)
-    error: Optional[str] = None
+    primary_price_usd: float | None = None
+    source: str | None = None
+    raw_prices: dict[str, float] = field(default_factory=dict)
+    error: str | None = None
     cached: bool = False
 
 
@@ -52,7 +55,7 @@ class PokedataPriceInfo:
 class PokedataPriceData:
     """
     Price data from Pokedata API.
-    
+
     Attributes:
         product_id: Pokedata product ID.
         price_usd: Current market price in USD.
@@ -62,29 +65,30 @@ class PokedataPriceData:
         last_updated: Timestamp of last price update.
         source: Price data source/marketplace.
     """
+
     product_id: str
     price_usd: float
-    price_low: Optional[float] = None
-    price_high: Optional[float] = None
-    price_average: Optional[float] = None
-    last_updated: Optional[datetime] = None
-    source: Optional[str] = None
-    
+    price_low: float | None = None
+    price_high: float | None = None
+    price_average: float | None = None
+    last_updated: datetime | None = None
+    source: str | None = None
+
     @classmethod
-    def from_api_response(cls, product_id: str, data: Dict[str, Any]) -> "PokedataPriceData":
+    def from_api_response(cls, product_id: str, data: dict[str, Any]) -> "PokedataPriceData":
         """
         Create PokedataPriceData from API response.
-        
+
         Args:
             product_id: The product ID.
             data: Raw API response dictionary.
-            
+
         Returns:
             PokedataPriceData: Parsed price data object.
         """
         # Parse common price fields
         price_usd = data.get("price", data.get("market_price", 0.0))
-        
+
         return cls(
             product_id=product_id,
             price_usd=float(price_usd) if price_usd else 0.0,
@@ -99,7 +103,7 @@ class PokedataPriceData:
 class PokedataProduct:
     """
     Product information from Pokedata API.
-    
+
     Attributes:
         product_id: Unique Pokedata product ID.
         name: Product name/title.
@@ -110,23 +114,24 @@ class PokedataProduct:
         image_url: Product image URL.
         pokedata_url: URL to Pokedata product page.
     """
+
     product_id: str
     name: str
     language: str
     asset_type: str
-    set_name: Optional[str] = None
-    release_date: Optional[datetime] = None
-    image_url: Optional[str] = None
-    pokedata_url: Optional[str] = None
-    
+    set_name: str | None = None
+    release_date: datetime | None = None
+    image_url: str | None = None
+    pokedata_url: str | None = None
+
     @classmethod
-    def from_api_response(cls, data: Dict[str, Any]) -> "PokedataProduct":
+    def from_api_response(cls, data: dict[str, Any]) -> "PokedataProduct":
         """
         Create PokedataProduct from API response.
-        
+
         Args:
             data: Raw API response dictionary.
-            
+
         Returns:
             PokedataProduct: Parsed product object.
         """
@@ -145,7 +150,7 @@ class PokedataProduct:
 class PokedataSearchResult:
     """
     Search result from Pokedata product search.
-    
+
     Attributes:
         product_id: Pokedata product ID.
         name: Product name.
@@ -154,21 +159,22 @@ class PokedataSearchResult:
         url: URL to product page.
         relevance_score: Search relevance score.
     """
+
     product_id: str
     name: str
-    language: Optional[str] = None
+    language: str | None = None
     asset_type: str = "PRODUCT"
-    url: Optional[str] = None
-    relevance_score: Optional[float] = None
-    
+    url: str | None = None
+    relevance_score: float | None = None
+
     @classmethod
-    def from_api_response(cls, data: Dict[str, Any]) -> "PokedataSearchResult":
+    def from_api_response(cls, data: dict[str, Any]) -> "PokedataSearchResult":
         """
         Create PokedataSearchResult from API response.
-        
+
         Args:
             data: Raw API response dictionary.
-            
+
         Returns:
             PokedataSearchResult: Parsed search result.
         """
@@ -186,12 +192,13 @@ class PokedataSearchResult:
 class PriceHistoryEntry:
     """
     Historical price entry for trend analysis.
-    
+
     Attributes:
         date: Date of the price record.
         price_usd: Price in USD on that date.
         product_id: Pokedata product ID.
     """
+
     date: datetime
     price_usd: float
     product_id: str
@@ -201,10 +208,11 @@ class PriceHistoryEntry:
 class PriceHistoryPoint:
     """
     Simple price history point for display.
-    
+
     Attributes:
         date: Date of the price record (as string YYYY-MM-DD).
         price_usd: Price in USD on that date.
     """
+
     date: str
     price_usd: float

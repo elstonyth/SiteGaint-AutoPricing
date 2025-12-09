@@ -7,11 +7,10 @@ Provides protection against excessive requests and abuse.
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Callable, Dict, Optional
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RateLimitConfig:
     """Configuration for rate limiting."""
-    
+
     enabled: bool = True
     # Default limits (requests per minute)
     default_rpm: int = 60
@@ -37,38 +36,33 @@ class RateLimitConfig:
 
 class RateLimitState:
     """Tracks request counts per client."""
-    
+
     def __init__(self):
         # Dict of client_id -> Dict of endpoint -> list of timestamps
-        self.requests: Dict[str, Dict[str, list]] = defaultdict(lambda: defaultdict(list))
-    
+        self.requests: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
+
     def record_request(self, client_id: str, endpoint: str) -> None:
         """Record a request from a client."""
         now = time.time()
         self.requests[client_id][endpoint].append(now)
-    
-    def get_request_count(
-        self, 
-        client_id: str, 
-        endpoint: str, 
-        window_seconds: int
-    ) -> int:
+
+    def get_request_count(self, client_id: str, endpoint: str, window_seconds: int) -> int:
         """Get the number of requests in the time window."""
         now = time.time()
         cutoff = now - window_seconds
-        
+
         # Clean old entries and count
         timestamps = self.requests[client_id][endpoint]
         valid_timestamps = [t for t in timestamps if t > cutoff]
         self.requests[client_id][endpoint] = valid_timestamps
-        
+
         return len(valid_timestamps)
-    
+
     def cleanup(self, max_age_seconds: int = 300) -> None:
         """Remove old entries to prevent memory growth."""
         now = time.time()
         cutoff = now - max_age_seconds
-        
+
         for client_id in list(self.requests.keys()):
             for endpoint in list(self.requests[client_id].keys()):
                 self.requests[client_id][endpoint] = [
@@ -90,11 +84,11 @@ def get_client_id(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
-    
+
     # Fall back to client host
     if request.client:
         return request.client.host
-    
+
     return "unknown"
 
 
@@ -112,36 +106,34 @@ def get_endpoint_limit(path: str, config: RateLimitConfig) -> int:
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware for rate limiting requests."""
-    
-    def __init__(self, app, config: Optional[RateLimitConfig] = None):
+
+    def __init__(self, app, config: RateLimitConfig | None = None):
         super().__init__(app)
         self.config = config or RateLimitConfig()
         self.state = _rate_limit_state
         self._last_cleanup = time.time()
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with rate limiting."""
         if not self.config.enabled:
             return await call_next(request)
-        
+
         # Skip rate limiting for health checks and static files
         path = request.url.path
         if path in ("/health", "/health/simple") or path.startswith("/static"):
             return await call_next(request)
-        
+
         # Periodic cleanup
         if time.time() - self._last_cleanup > 60:
             self.state.cleanup()
             self._last_cleanup = time.time()
-        
+
         client_id = get_client_id(request)
         limit = get_endpoint_limit(path, self.config)
-        
+
         # Check rate limit
-        current_count = self.state.get_request_count(
-            client_id, path, self.config.window_seconds
-        )
-        
+        current_count = self.state.get_request_count(client_id, path, self.config.window_seconds)
+
         if current_count >= limit:
             logger.warning(
                 f"Rate limit exceeded: client={client_id}, path={path}, "
@@ -160,15 +152,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "X-RateLimit-Remaining": "0",
                 },
             )
-        
+
         # Record this request
         self.state.record_request(client_id, path)
-        
+
         # Add rate limit headers to response
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(max(0, limit - current_count - 1))
-        
+
         return response
 
 

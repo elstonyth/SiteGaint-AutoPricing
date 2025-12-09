@@ -2,17 +2,16 @@ import json
 import logging
 import os
 from decimal import Decimal
-from pathlib import Path
 
 import pandas as pd
 import pytest
 import requests
 
 from src.pokedata_client.api_client import (
-    PokedataClientError,
     PokedataApiKeyError,
     PokedataAuthError,
     PokedataClient,
+    PokedataClientError,
     PokedataRateLimitError,
 )
 from src.pokedata_client.models import PokedataPriceInfo
@@ -103,14 +102,17 @@ def test_pokedata_client_headers_and_auth_and_rate_limit(monkeypatch):
     def fake_handle(retry_after=None):
         rate_limit_calls.append(retry_after)
         import time as _time
+
         client._backoff_until = _time.time() + (retry_after or 1)
 
     monkeypatch.setattr(client, "_handle_rate_limit", fake_handle)
-    client.session = SequentialSession([
-        FakeResponse(429, {}, {"Retry-After": "1"}),
-        FakeResponse(429, {}, {"Retry-After": "2"}),
-        FakeResponse(429, {}, {"Retry-After": "3"}),
-    ])
+    client.session = SequentialSession(
+        [
+            FakeResponse(429, {}, {"Retry-After": "1"}),
+            FakeResponse(429, {}, {"Retry-After": "2"}),
+            FakeResponse(429, {}, {"Retry-After": "3"}),
+        ]
+    )
     with pytest.raises(PokedataRateLimitError):
         client._make_request("GET", "/rate")
     assert rate_limit_calls == [1, 2, 3]
@@ -120,13 +122,17 @@ def test_pokedata_client_product_and_verify(monkeypatch):
     config = AppConfig()
     client = PokedataClient(config, api_key="abc")
 
-    monkeypatch.setattr(client, "_make_request", lambda *a, **k: {"id": 10, "name": "Prod", "language": "ENGLISH"})
+    monkeypatch.setattr(
+        client, "_make_request", lambda *a, **k: {"id": 10, "name": "Prod", "language": "ENGLISH"}
+    )
     product = client.get_product("10")
     assert product.product_id == "10"
     assert product.name == "Prod"
 
     # verify_account returns False on auth error
-    monkeypatch.setattr(client, "_make_request", lambda *a, **k: (_ for _ in ()).throw(PokedataAuthError("bad")))
+    monkeypatch.setattr(
+        client, "_make_request", lambda *a, **k: (_ for _ in ()).throw(PokedataAuthError("bad"))
+    )
     assert client.verify_account() is False
 
     # Missing API key should trigger error when enforced
@@ -224,7 +230,9 @@ def test_io_helpers_and_logging(tmp_path):
     assert get_file_list(tmp_path, pattern="*.csv") == [csv_path]
 
     formatter = JSONFormatter()
-    record = logging.LogRecord("x", logging.INFO, __file__, 10, "hello", args=(), exc_info=None, func="f")
+    record = logging.LogRecord(
+        "x", logging.INFO, __file__, 10, "hello", args=(), exc_info=None, func="f"
+    )
     formatted = json.loads(formatter.format(record))
     assert formatted["message"] == "hello"
 
@@ -311,12 +319,16 @@ def test_get_pricing_parses_sources(monkeypatch):
 def test_search_products_and_price_wrappers(monkeypatch):
     config = AppConfig()
     client = PokedataClient(config, api_key="key")
-    monkeypatch.setattr(client, "_make_request", lambda *a, **k: {"results": [{"id": 1, "name": "A"}]})
+    monkeypatch.setattr(
+        client, "_make_request", lambda *a, **k: {"results": [{"id": 1, "name": "A"}]}
+    )
     results = client.search_products("A")
     assert results[0].product_id == "1"
 
     # get_price wrapper returns PokedataPriceData when price exists
-    monkeypatch.setattr(client, "get_pricing", lambda pid: PokedataPriceInfo(product_id=pid, primary_price_usd=2.0))
+    monkeypatch.setattr(
+        client, "get_pricing", lambda pid: PokedataPriceInfo(product_id=pid, primary_price_usd=2.0)
+    )
     price_data = client.get_price("1")
     assert price_data.price_usd == 2.0
 
@@ -326,7 +338,9 @@ def test_search_products_and_price_wrappers(monkeypatch):
     assert results_list[0].product_id == "2"
 
     # get_price returns None when no price
-    monkeypatch.setattr(client, "get_pricing", lambda pid: PokedataPriceInfo(product_id=pid, primary_price_usd=None))
+    monkeypatch.setattr(
+        client, "get_pricing", lambda pid: PokedataPriceInfo(product_id=pid, primary_price_usd=None)
+    )
     assert client.get_price("1") is None
 
 
@@ -336,7 +350,13 @@ def test_get_prices_batch(monkeypatch):
     monkeypatch.setattr(client, "_rate_limit", lambda: None)
     monkeypatch.setattr(client, "_reset_backoff", lambda: None)
     # Mock get_pricing to accept force_refresh kwarg
-    monkeypatch.setattr(client, "get_pricing", lambda pid, force_refresh=False: PokedataPriceInfo(product_id=pid, primary_price_usd=float(pid)))
+    monkeypatch.setattr(
+        client,
+        "get_pricing",
+        lambda pid, force_refresh=False: PokedataPriceInfo(
+            product_id=pid, primary_price_usd=float(pid)
+        ),
+    )
     # Disable cache so batch fetches from API
     client.set_use_cache(False)
 
@@ -385,7 +405,7 @@ def test_io_helpers_errors_and_logging(tmp_path, capsys):
 
     # get_logger helper
     log_path = tmp_path / "log.log"
-    logger = setup_logging(log_file=log_path)
+    setup_logging(log_file=log_path)
     child = logging.getLogger("child")
     child.info("hello")
     assert log_path.exists()

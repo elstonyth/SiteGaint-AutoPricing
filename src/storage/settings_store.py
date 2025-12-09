@@ -9,11 +9,10 @@ Manages persistent storage of application settings including:
 
 import json
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
 
-from src.storage.encryption import encrypt, decrypt, is_encrypted
+from src.storage.encryption import decrypt, encrypt, is_encrypted
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +23,25 @@ DEFAULT_SETTINGS_PATH = "data/cache/app_settings.json"
 @dataclass
 class AppSettings:
     """Application settings stored persistently."""
+
     # API Key (stored securely - not in version control)
     pokedata_api_key: str = ""
-    
+
     # FX Rate settings
     fx_rate: float = 4.50
     fx_source: str = "manual"  # "manual" or "google"
-    
+
     # Pricing settings
     margin_divisor: float = 0.8
-    
+
     # Threshold settings
     soft_threshold: float = 20.0
     hard_threshold: float = 50.0
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "AppSettings":
         """Create from dictionary."""
@@ -57,75 +57,75 @@ class AppSettings:
 
 class SettingsStore:
     """Manages persistent storage of application settings."""
-    
-    def __init__(self, settings_path: Optional[str] = None) -> None:
+
+    def __init__(self, settings_path: str | None = None) -> None:
         """Initialize the settings store."""
         self.settings_path = Path(settings_path or DEFAULT_SETTINGS_PATH)
-        self._settings: Optional[AppSettings] = None
-    
+        self._settings: AppSettings | None = None
+
     def _ensure_file_exists(self) -> None:
         """Create the settings file with defaults if it doesn't exist."""
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         if not self.settings_path.exists():
             self._save(AppSettings())
             logger.info(f"Created default settings file: {self.settings_path}")
-    
+
     def _load(self) -> AppSettings:
         """Load settings from file."""
         self._ensure_file_exists()
-        
+
         try:
-            with open(self.settings_path, "r", encoding="utf-8") as f:
+            with open(self.settings_path, encoding="utf-8") as f:
                 data = json.load(f)
                 return AppSettings.from_dict(data)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load settings, using defaults: {e}")
             return AppSettings()
-    
+
     def _save(self, settings: AppSettings) -> None:
         """Save settings to file."""
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(self.settings_path, "w", encoding="utf-8") as f:
             json.dump(settings.to_dict(), f, indent=2)
-        
+
         self._settings = settings
         logger.info("Settings saved")
-    
+
     def get(self) -> AppSettings:
         """Get current settings."""
         if self._settings is None:
             self._settings = self._load()
         return self._settings
-    
+
     def update(self, **kwargs) -> AppSettings:
         """Update specific settings."""
         settings = self.get()
-        
+
         for key, value in kwargs.items():
             if hasattr(settings, key):
                 setattr(settings, key, value)
-        
+
         self._save(settings)
         return settings
-    
+
     def set_api_key(self, api_key: str) -> None:
         """Set the Pokedata API key (encrypted at rest)."""
         # Encrypt before storing
         encrypted_key = encrypt(api_key.strip())
         self.update(pokedata_api_key=encrypted_key)
         logger.info("API key updated (encrypted)")
-    
+
     def clear_api_key(self) -> None:
         """Clear the Pokedata API key."""
         self.update(pokedata_api_key="")
         logger.info("API key cleared")
-    
+
     def has_api_key(self) -> bool:
         """Check if an API key is configured."""
         return bool(self.get().pokedata_api_key)
-    
+
     def get_api_key(self) -> str:
         """Get the API key (decrypted)."""
         stored_key = self.get().pokedata_api_key
@@ -138,7 +138,7 @@ class SettingsStore:
 
 
 # Module-level singleton
-_store: Optional[SettingsStore] = None
+_store: SettingsStore | None = None
 
 
 def _get_store() -> SettingsStore:
@@ -161,10 +161,11 @@ def update_settings(**kwargs) -> AppSettings:
 
 def get_api_key() -> str:
     """Get the API key (convenience function).
-    
+
     Checks environment variable first (for Docker), then falls back to stored key.
     """
     import os
+
     # Check environment variable first (preferred for Docker)
     env_key = os.environ.get("POKEDATA_API_KEY", "")
     if env_key:

@@ -1,9 +1,8 @@
-import os
 import sys
 from pathlib import Path
 
 try:
-    from fpdf import FPDF
+    from fpdf import FPDF  # noqa: F401
 except ImportError:
     print("Please install fpdf2: pip install fpdf2")
     sys.exit(1)

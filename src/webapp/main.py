@@ -9,11 +9,10 @@ Open: http://127.0.0.1:8000
 
 import logging
 import time
-import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -21,8 +20,8 @@ from fastapi.staticfiles import StaticFiles
 
 from src.utils.config_loader import load_config, load_env
 from src.utils.logging_config import setup_logging
-from src.webapp.middleware import RateLimitMiddleware, RateLimitConfig
-from src.webapp.routes import router, cleanup_expired_sessions
+from src.webapp.middleware import RateLimitConfig, RateLimitMiddleware
+from src.webapp.routes import cleanup_expired_sessions, router
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +34,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
     load_env()
     config = load_config()
-    
+
     # Setup structured logging
-    log_format = getattr(config.logging, 'format', 'text') if hasattr(config, 'logging') else 'text'
-    log_level = getattr(config.logging, 'level', 'INFO') if hasattr(config, 'logging') else 'INFO'
+    log_format = getattr(config.logging, "format", "text") if hasattr(config, "logging") else "text"
+    log_level = getattr(config.logging, "level", "INFO") if hasattr(config, "logging") else "INFO"
     setup_logging(level=log_level, log_format=log_format)
-    
+
     logger.info("SiteGiant Pricing Automation - Web App starting...")
     print("\n" + "=" * 60)
     print("SiteGiant Pricing Automation - Web App")
@@ -84,10 +83,10 @@ async def error_handling_middleware(request: Request, call_next):
 
 
 @app.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """Detailed health check endpoint for monitoring."""
     from src.services.health_service import get_health_service
-    
+
     cleanup_expired_sessions()
     health_service = get_health_service()
     report = health_service.get_full_health()
@@ -95,7 +94,7 @@ async def health_check() -> Dict[str, Any]:
 
 
 @app.get("/health/simple")
-async def simple_health_check() -> Dict[str, Any]:
+async def simple_health_check() -> dict[str, Any]:
     """Simple health check for load balancers."""
     return {
         "status": "ok",
@@ -104,7 +103,7 @@ async def simple_health_check() -> Dict[str, Any]:
 
 
 @app.get("/health/ready")
-async def readiness_check() -> Dict[str, Any]:
+async def readiness_check() -> dict[str, Any]:
     """Readiness check - verifies app can serve requests."""
     return {
         "status": "ready",
@@ -116,8 +115,8 @@ async def readiness_check() -> Dict[str, Any]:
 rate_limit_config = RateLimitConfig(
     enabled=True,
     process_rpm=10,  # 10 price processing requests per minute
-    api_rpm=30,      # 30 API calls per minute
-    export_rpm=20,   # 20 export requests per minute
+    api_rpm=30,  # 30 API calls per minute
+    export_rpm=20,  # 20 export requests per minute
 )
 app.add_middleware(RateLimitMiddleware, config=rate_limit_config)
 
@@ -132,4 +131,5 @@ app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("src.webapp.main:app", host="127.0.0.1", port=8000, reload=True)
